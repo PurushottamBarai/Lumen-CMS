@@ -7,6 +7,7 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const path = require('path');
+const mongoose = require('mongoose');
 const connectDB = require('./config/db');
 const contentQualityRoutes = require('./routes/contentQualityRoutes');
 
@@ -17,9 +18,9 @@ dotenv.config();
 const app = express();
 
 // Connect to MongoDB
-connectDB().catch((err) => {
+connectDB().catch(() => {
   console.warn(
-    '[Lumen Server] MongoDB connection deferred or offline. Running Express server with in-memory fallback.'
+    '[Lumen Server] MongoDB is unavailable. Health remains available; database-dependent endpoints return 503.'
   );
 });
 
@@ -42,6 +43,10 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({
     success: true,
     status: 'online',
+    database: {
+      status: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+      ...(mongoose.connection.readyState === 1 ? { name: mongoose.connection.name } : {}),
+    },
     timestamp: new Date().toISOString(),
     service: 'Lumen Content Management System API',
   });
@@ -145,25 +150,23 @@ app.use((req, res) => {
 // ======================================================
 
 app.use((err, req, res, next) => {
-  console.error(
-    '[Lumen Server Error]:',
-    err.stack || err.message
-  );
+  console.error('[Lumen Server Error]:', {
+    name: err.name,
+    code: err.code || 'UNKNOWN',
+  });
 
   const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
 
   res.status(statusCode).json({
     success: false,
-    message: err.message || 'Internal Server Error',
-    ...(process.env.NODE_ENV === 'development'
-      ? { stack: err.stack }
-      : {}),
+    message: 'Internal Server Error',
   });
 });
 
 const http = require('http');
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
+const { getJwtSecret } = require('./config/jwt');
 
 const server = http.createServer(app);
 
@@ -185,9 +188,8 @@ io.use((socket, next) => {
 
   if (token) {
     try {
-      const jwtSecret =
-        process.env.JWT_SECRET ||
-        'lumen_super_secret_jwt_key_2026_cms_platform';
+      const jwtSecret = getJwtSecret();
+      if (!jwtSecret) return next(new Error('Authentication is not configured.'));
       const decoded = jwt.verify(token, jwtSecret);
       socket.user = decoded;
     } catch (err) {

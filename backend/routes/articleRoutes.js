@@ -5,6 +5,7 @@ const {
   getArticles,
   getArticleById,
   getRecommendedArticles,
+  getTopicTrends,
   updateArticle,
   submitArticle,
 
@@ -27,6 +28,7 @@ const {
   authorizeRole,
   optionalAuth,
 } = require('../middleware/auth');
+const { requireDatabase } = require('../middleware/requireDatabase');
 
 const router = express.Router();
 
@@ -36,6 +38,9 @@ const router = express.Router();
 
 // Get all articles
 router.get('/', optionalAuth, getArticles);
+
+// Topic trend analysis (must be registered before the generic /:id route)
+router.get('/topics/trends', requireDatabase, getTopicTrends);
 
 // Get published articles by a specific author
 router.get(

@@ -11,6 +11,9 @@ const {
   deleteUser,
 } = require('../controllers/userController');
 const { authenticateUser, authorizeRole } = require('../middleware/auth');
+const { requireDatabase } = require('../middleware/requireDatabase');
+
+router.use(requireDatabase);
 
 // Protected profile endpoints for the authenticated user
 router.get('/profile', authenticateUser, getProfile);

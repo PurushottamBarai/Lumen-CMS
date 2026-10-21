@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { articleAPI } from '../services/api';
 import {
   BookOpen,
   LayoutGrid,
@@ -15,6 +16,12 @@ import {
   Eye,
   Clock,
   ThumbsUp,
+  TrendingUp,
+  Hash,
+  Flame,
+  Bookmark,
+  ChevronDown,
+  ArrowUpDown,
 } from 'lucide-react';
 
 /**
@@ -126,183 +133,267 @@ export const HomePage = () => {
  * Browse View
  */
 export const BrowsePage = () => {
-  const categories = [
-    'All Topics',
-    'Science',
-    'Technology',
-    'Environment',
-    'History',
-    'Health',
-    'Business',
-    'Education',
-    'Other',
-  ];
-
+  // Keep the reference design's topic navigation and editorial article feed.
+  const categories = ['Technology', 'Science', 'Medicine', 'History', 'Environment', 'Architecture', 'Security'];
   const [articles, setArticles] = React.useState([]);
   const [searchQuery, setSearchQuery] = React.useState('');
-  const [selectedCategory, setSelectedCategory] =
-    React.useState('All Topics');
-
+  const [selectedCategory, setSelectedCategory] = React.useState('All Topics');
+  const [selectedFeed, setSelectedFeed] = React.useState('All Topics');
+  const [sortBy, setSortBy] = React.useState('latest');
   const [loading, setLoading] = React.useState(true);
+  const [topicTrends, setTopicTrends] = React.useState([]);
+  const [topicTrendLoading, setTopicTrendLoading] = React.useState(true);
+  const [topicTrendError, setTopicTrendError] = React.useState('');
+  const [topicTrendBasis, setTopicTrendBasis] = React.useState('');
+  const [topicSearch, setTopicSearch] = React.useState('');
+  const [topicRetry, setTopicRetry] = React.useState(0);
 
-  /*
-   * Fetch articles from backend API using search & category query params
-   */
   React.useEffect(() => {
+    let cancelled = false;
+    const fetchTopicTrends = async () => {
+      setTopicTrendLoading(true);
+      setTopicTrendError('');
+      try {
+        const response = await articleAPI.getTopicTrends();
+        const data = response.data;
+        if (!data?.success) throw new Error(data?.message || 'Could not load topic trends.');
+        if (!cancelled) {
+          setTopicTrends(data.topics || []);
+          setTopicTrendBasis(data.trendBasis || '');
+        }
+      } catch (error) {
+        console.error('Failed to load topic trends:', error);
+        if (!cancelled) setTopicTrendError(error.message || 'Could not load topic trends.');
+      } finally {
+        if (!cancelled) setTopicTrendLoading(false);
+      }
+    };
+    fetchTopicTrends();
+    return () => { cancelled = true; };
+  }, [topicRetry]);
+
+  React.useEffect(() => {
+    let cancelled = false;
     const fetchArticles = async () => {
       try {
         setLoading(true);
         const token = localStorage.getItem('lumen_token');
-
-        const queryParams = new URLSearchParams();
-        if (searchQuery.trim()) {
-          queryParams.append('search', searchQuery.trim());
-        }
-        if (selectedCategory && selectedCategory !== 'All Topics') {
-          queryParams.append('category', selectedCategory);
-        }
-
-        const apiBase = import.meta.env.VITE_API_URL || 'https://content-management-system-2-he9n.onrender.com/api';
-        const url = `${apiBase}/articles?${queryParams.toString()}`;
-
-        const response = await fetch(url, {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+        const params = new URLSearchParams();
+        if (searchQuery.trim()) params.set('search', searchQuery.trim());
+        // Category/topic filtering is applied client-side so reference topics like
+        // Architecture and Security still work with the existing Article schema.
+        const apiBase = import.meta.env.VITE_API_URL || '/api';
+        const response = await fetch(`${apiBase}/articles?${params.toString()}`, {
+          headers: { Authorization: `Bearer ${token || ''}` },
         });
-
         const data = await response.json();
-
-        if (data.success) {
-          setArticles(data.articles || []);
-        }
+        if (!cancelled && data.success) setArticles(data.articles || []);
       } catch (error) {
         console.error('Failed to load articles:', error);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
+    const timer = setTimeout(fetchArticles, 250);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [searchQuery]);
 
-    const timer = setTimeout(() => {
-      fetchArticles();
-    }, 300);
+  const trendingArticleIds = React.useMemo(() => {
+    const ids = new Set();
+    topicTrends.slice(0, 6).forEach((topic) => {
+      (topic.articles || []).forEach((article) => ids.add(String(article._id || article.id || '')));
+    });
+    return ids;
+  }, [topicTrends]);
 
-    return () => clearTimeout(timer);
-  }, [searchQuery, selectedCategory]);
+  const visibleArticles = React.useMemo(() => {
+    let result = [...articles];
+    if (selectedCategory !== 'All Topics') {
+      const aliases = { Medicine: 'Health' };
+      const categoryName = aliases[selectedCategory] || selectedCategory;
+      result = result.filter((article) => {
+        const categoryMatch = String(article.category || '').toLowerCase() === categoryName.toLowerCase();
+        const topicMatch = `${article.title || ''} ${article.description || ''} ${(article.tags || []).join(' ')}`.toLowerCase().includes(selectedCategory.toLowerCase());
+        return categoryMatch || topicMatch;
+      });
+    }
+    if (selectedFeed === 'Trending Now') {
+      result = result.filter((article) => trendingArticleIds.has(String(article._id)));
+      result.sort((a, b) => (Number(b.views || 0) + Number(b.likes || 0) * 3) - (Number(a.views || 0) + Number(a.likes || 0) * 3));
+    } else if (sortBy === 'popular') {
+      result.sort((a, b) => (Number(b.views || 0) + Number(b.likes || 0) * 3) - (Number(a.views || 0) + Number(a.likes || 0) * 3));
+    } else if (sortBy === 'oldest') {
+      result.sort((a, b) => new Date(a.publishedAt || a.createdAt || 0) - new Date(b.publishedAt || b.createdAt || 0));
+    } else {
+      result.sort((a, b) => new Date(b.publishedAt || b.createdAt || 0) - new Date(a.publishedAt || a.createdAt || 0));
+    }
+    return result;
+  }, [articles, selectedCategory, selectedFeed, sortBy, trendingArticleIds]);
 
-  const filteredArticles = articles;
-
+  const setFeed = (feed) => {
+    setSelectedFeed(feed);
+    if (feed === 'All Topics') setSelectedCategory('All Topics');
+  };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
-
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="font-serif text-3xl font-bold text-stone-900">
-            Browse Articles & Topics
-          </h1>
-
-          <p className="text-xs text-stone-500 mt-1">
-            Explore essays, research notes, and curated knowledge
-          </p>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-7">
+      {/* Reference page header */}
+      <div className="space-y-5">
+        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5">
+          <div>
+            <div className="flex items-center gap-2 text-xs text-stone-500 mb-3">
+              <Link to="/" className="hover:text-[#1A382B]">Home</Link>
+              <span>›</span>
+              <span className="text-stone-700">Articles</span>
+            </div>
+            <h1 className="font-serif text-3xl sm:text-4xl font-bold tracking-tight text-stone-900">Explore Articles</h1>
+            <p className="text-sm text-stone-500 mt-2 max-w-2xl">
+              Browse peer-verified engineering guides, research papers, and technical deep dives across the platform.
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+            <label className="relative block w-full sm:w-80">
+              <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search articles, keywords, or topics..."
+                className="w-full pl-10 pr-4 py-3 bg-white border border-[#E5E0D7] rounded-xl text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:border-[#1A382B] focus:ring-2 focus:ring-[#1A382B]/10"
+              />
+            </label>
+            <label className="relative flex items-center min-w-36">
+              <ArrowUpDown className="w-4 h-4 text-stone-400 absolute left-3.5 pointer-events-none" />
+              <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} className="appearance-none w-full pl-10 pr-9 py-3 bg-white border border-[#E5E0D7] rounded-xl text-sm text-stone-700 focus:outline-none focus:border-[#1A382B]">
+                <option value="latest">Latest first</option>
+                <option value="popular">Most popular</option>
+                <option value="oldest">Oldest first</option>
+              </select>
+              <ChevronDown className="w-4 h-4 text-stone-400 absolute right-3 pointer-events-none" />
+            </label>
+          </div>
         </div>
-
-        {/* Search */}
-        <div className="relative w-full md:w-72">
-          <input
-            type="text"
-            placeholder="Search articles or topics..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-white border border-[#EDE8DF] rounded-xl text-xs text-stone-900 focus:outline-none focus:border-[#1A382B]"
-          />
-
-          <Search className="w-4 h-4 text-stone-400 absolute left-3 top-2.5" />
-        </div>
+        <div className="text-xs text-stone-500">Showing {visibleArticles.length} {visibleArticles.length === 1 ? 'article' : 'articles'}</div>
       </div>
 
-      {/* Category Pills */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2">
-        {categories.map((cat) => (
-          <button
-            key={cat}
-            type="button"
-            onClick={() => setSelectedCategory(cat)}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition ${
-              selectedCategory === cat
-                ? 'bg-[#1A382B] text-white shadow-2xs'
-                : 'bg-white border border-[#EDE8DF] text-stone-700 hover:bg-[#EFECE6]'
-            }`}
-          >
-            {cat}
+      {/* Topic navigation from the shared Lumen reference */}
+      <div className="border-b border-[#E8E2D8] pb-4 space-y-4">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          <button type="button" onClick={() => setFeed('All Topics')} className={`inline-flex items-center gap-2 whitespace-nowrap px-4 py-2.5 rounded-xl text-sm font-semibold transition ${selectedFeed === 'All Topics' ? 'bg-[#1A382B] text-white shadow-sm' : 'bg-white border border-[#E5E0D7] text-stone-600 hover:bg-[#F2EFE9]'}`}>
+            <LayoutGrid className="w-4 h-4" /> All Topics
           </button>
-        ))}
+          <button type="button" onClick={() => setFeed('For You')} className={`inline-flex items-center gap-2 whitespace-nowrap px-4 py-2.5 rounded-xl text-sm font-semibold transition ${selectedFeed === 'For You' ? 'bg-[#1A382B] text-white shadow-sm' : 'bg-white border border-[#E5E0D7] text-stone-600 hover:bg-[#F2EFE9]'}`}>
+            <Sparkles className="w-4 h-4" /> For You
+          </button>
+          <button type="button" onClick={() => setFeed('Trending Now')} className={`inline-flex items-center gap-2 whitespace-nowrap px-4 py-2.5 rounded-xl text-sm font-semibold transition ${selectedFeed === 'Trending Now' ? 'bg-[#1A382B] text-white shadow-sm' : 'bg-white border border-[#E5E0D7] text-stone-600 hover:bg-[#F2EFE9]'}`}>
+            <Flame className="w-4 h-4" /> Trending Now
+          </button>
+          <span className="hidden md:block h-7 w-px bg-[#E5E0D7] mx-1" />
+          {categories.map((category) => (
+            <button key={category} type="button" onClick={() => { setSelectedCategory(category); setSelectedFeed('All Topics'); }} className={`whitespace-nowrap px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${selectedCategory === category ? 'bg-[#EFECE6] text-[#1A382B] border border-[#D8D1C5]' : 'text-stone-600 hover:bg-[#F2EFE9]'}`}>
+              {category}
+            </button>
+          ))}
+        </div>
+        {selectedFeed === 'Trending Now' && (
+          <div className="flex flex-wrap items-center gap-2 text-xs text-stone-500">
+            <span className="inline-flex items-center gap-1.5 font-semibold text-[#1A382B]"><TrendingUp className="w-3.5 h-3.5" /> Topic trend detection</span>
+            {topicTrends.slice(0, 5).map((topic) => (
+              <button key={topic.name} type="button" onClick={() => { setSearchQuery(topic.name); setSelectedCategory('All Topics'); }} className="rounded-full border border-[#E5E0D7] bg-white px-3 py-1.5 hover:border-[#1A382B] hover:text-[#1A382B] transition">
+                {topic.name} <span className="text-stone-400">· {topic.trend}</span>
+              </button>
+            ))}
+            {topicTrends.length === 0 && <span>Topic trends appear as articles are published.</span>}
+          </div>
+        )}
       </div>
 
-      {/* Articles */}
+      {selectedFeed === 'Trending Now' && (
+        <section className="space-y-4" aria-labelledby="topic-trends-heading">
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+            <div>
+              <h2 id="topic-trends-heading" className="font-serif text-2xl font-semibold text-stone-800">Topic &amp; Trend Detection</h2>
+              <p className="text-sm text-stone-500 mt-1">Publication frequency across consecutive 7-day windows. Current engagement totals are context only.</p>
+            </div>
+            <label className="relative flex items-center w-full sm:max-w-xs">
+              <Search className="w-4 h-4 text-stone-400 absolute left-3.5 pointer-events-none" />
+              <input value={topicSearch} onChange={(event) => setTopicSearch(event.target.value)} placeholder="Search topics or keywords" className="w-full pl-10 pr-4 py-2.5 bg-white border border-[#E5E0D7] rounded-xl text-sm focus:outline-none focus:border-[#1A382B]" />
+            </label>
+          </div>
+          {topicTrendBasis && <p className="text-xs text-stone-500">{topicTrendBasis}</p>}
+          {topicTrendLoading ? (
+            <div className="rounded-2xl border border-[#E8E2D8] bg-white p-8 text-center text-sm text-stone-500" role="status">Analyzing published topics…</div>
+          ) : topicTrendError ? (
+            <div className="rounded-2xl border border-[#E8E2D8] bg-white p-8 text-center" role="alert"><p className="text-sm text-stone-700">{topicTrendError}</p><button type="button" onClick={() => setTopicRetry((retry) => retry + 1)} className="mt-4 rounded-xl bg-[#1A382B] px-4 py-2 text-sm font-semibold text-white hover:bg-[#11261D]">Retry</button></div>
+          ) : (() => {
+            const filteredTopics = topicTrends.filter((topic) => {
+              const term = topicSearch.trim().toLowerCase();
+              const matchesSearch = !term || [topic.name, ...(topic.keywords || [])].some((value) => String(value).toLowerCase().includes(term));
+              const matchesCategory = selectedCategory === 'All Topics' || (topic.categories || []).some((category) => (category === 'Health' && selectedCategory === 'Medicine') || category.toLowerCase() === selectedCategory.toLowerCase()) || [topic.name, ...(topic.keywords || []), ...(topic.articles || []).map((article) => article.title)].some((value) => String(value).toLowerCase().includes(selectedCategory.toLowerCase()));
+              return matchesSearch && matchesCategory;
+            });
+            return filteredTopics.length ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {filteredTopics.map((topic) => (
+                  <article key={topic.name} className="rounded-2xl border border-[#E8E2D8] bg-white p-5 shadow-sm">
+                    <div className="flex items-start justify-between gap-3"><h3 className="font-serif text-lg font-semibold text-stone-800">{topic.name}</h3><div className="flex flex-wrap justify-end gap-1.5">{topic.popular && <span className="rounded-full bg-[#EFECE6] px-2.5 py-1 text-[11px] font-semibold text-[#1A382B]">Popular</span>}<span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${topic.trend === 'Rising' ? 'bg-emerald-50 text-emerald-800' : topic.trend === 'Cooling' ? 'bg-amber-50 text-amber-800' : topic.trend === 'Steady' ? 'bg-stone-100 text-stone-700' : 'bg-stone-100 text-stone-500'}`}>{topic.trend}</span></div></div>
+                    <p className="mt-3 text-sm text-stone-600">{topic.articleCount} related published {topic.articleCount === 1 ? 'article' : 'articles'} · {topic.recentArticles} latest 7 days · {topic.previousArticles} previous 7 days</p>
+                    <p className="mt-1 text-xs text-stone-500">{topic.growthPercent === null ? 'No comparable prior period' : `${topic.growthPercent > 0 ? '+' : ''}${topic.growthPercent}% frequency change`}{topic.undatedArticles > 0 ? ` · ${topic.undatedArticles} without a usable date` : ''}</p>
+                    {Object.keys(topic.engagement || {}).length > 0 && <p className="mt-2 text-xs text-stone-500">Current totals: {Object.entries(topic.engagement).map(([metric, value]) => `${metric} ${Number(value).toLocaleString()}`).join(' · ')}</p>}
+                    {topic.keywords?.length > 0 && <div className="mt-3 flex flex-wrap gap-1.5">{topic.keywords.slice(0, 5).map((keyword) => <span key={keyword} className="rounded-full border border-[#E5E0D7] px-2.5 py-1 text-[11px] text-stone-600">{keyword}</span>)}</div>}
+                    {topic.articles?.length > 0 && <ul className="mt-4 space-y-2 border-t border-[#F0ECE5] pt-3">{topic.articles.map((article) => <li key={article._id}><Link to={`/browse/${article._id}`} className="text-sm text-[#1A382B] hover:underline">{article.title}</Link></li>)}</ul>}
+                  </article>
+                ))}
+              </div>
+            ) : <div className="rounded-2xl border border-dashed border-[#DCD5C9] bg-white/70 p-8 text-center text-sm text-stone-500">No published topics match these filters.</div>;
+          })()}
+        </section>
+      )}
+
+      {/* Article feed uses the reference's clean editorial card language */}
       {loading ? (
-        <div className="text-center py-12 text-stone-500">
-          Loading articles...
-        </div>
-      ) : filteredArticles.length === 0 ? (
-        <div className="text-center py-12 text-stone-500">
-          No articles found.
+        <div className="py-16 text-center text-sm text-stone-500">Loading articles…</div>
+      ) : visibleArticles.length === 0 ? (
+        <div className="py-16 text-center bg-white/70 border border-dashed border-[#DCD5C9] rounded-2xl">
+          <Search className="w-7 h-7 text-stone-400 mx-auto mb-3" />
+          <h2 className="font-serif text-xl font-semibold text-stone-800">No articles found matching your criteria</h2>
+          <p className="text-sm text-stone-500 mt-2">Try adjusting your search, clearing filters, or exploring our active topics list.</p>
+          <button type="button" onClick={() => { setSearchQuery(''); setSelectedCategory('All Topics'); setSelectedFeed('All Topics'); }} className="mt-5 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#1A382B] text-white text-sm font-semibold hover:bg-[#11261D]">Reset filters <ArrowRight className="w-4 h-4" /></button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-          {filteredArticles.map((article) => (
-            <Link
-              key={article._id}
-              to={`/browse/${article._id}`}
-              className="bg-white border border-[#EDE8DF] rounded-3xl p-6 shadow-xs space-y-3 hover:border-stone-400 transition"
-            >
-
-              {/* Category + Views */}
-              <div className="flex items-center justify-between text-xs text-stone-500">
-
-                <span className="font-semibold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                  {article.category}
-                </span>
-
-                <span className="flex items-center gap-1">
-                  <Eye className="w-3.5 h-3.5" />
-                  {article.views || 0}
-                </span>
-
-              </div>
-
-              {/* Title */}
-              <h3 className="font-serif text-xl font-bold text-stone-900">
-                {article.title}
-              </h3>
-
-              {/* Description */}
-              <p className="text-xs text-stone-600 leading-relaxed">
-                {article.description}
-              </p>
-
-              {/* Author + Likes */}
-              <div className="pt-2 border-t border-[#F5F2EB] flex items-center justify-between text-xs text-stone-500">
-
-                <span>
-                  By {article.author?.name || 'Unknown Author'}
-                </span>
-
-                <span className="flex items-center gap-1 text-stone-700 font-medium">
-                  <ThumbsUp className="w-3.5 h-3.5 text-stone-400" />
-                  {article.likes || 0} likes
-                </span>
-
-              </div>
-
-            </Link>
-          ))}
-
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
+          {visibleArticles.map((article) => {
+            const cover = article.coverImage || article.image || article.thumbnail || article.imageUrl;
+            return (
+              <Link key={article._id} to={`/browse/${article._id}`} className="group bg-white border border-[#E8E2D8] rounded-2xl overflow-hidden hover:border-[#C9C1B4] hover:shadow-md transition-all duration-200">
+                <div className="grid grid-cols-1 sm:grid-cols-[180px_minmax(0,1fr)] min-h-56">
+                  <div className="relative min-h-44 sm:min-h-full overflow-hidden bg-[#E8E4DA]">
+                    {cover ? <img src={cover} alt="" className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" /> : <div className="absolute inset-0 bg-gradient-to-br from-[#D8DED4] via-[#E9E3D8] to-[#D9D0C2]" />}
+                    <div className="absolute inset-0 bg-gradient-to-t from-stone-950/35 via-transparent to-transparent" />
+                    <span className="absolute left-3 bottom-3 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-semibold text-[#1A382B]">{article.category || 'Technology'}</span>
+                  </div>
+                  <div className="p-5 sm:p-6 flex flex-col min-w-0">
+                    <div className="flex items-center justify-between gap-3 text-xs text-stone-500">
+                      <span className="truncate">{article.subcategory || article.tags?.[0] || 'Research & Insights'}</span>
+                      <span className="inline-flex items-center gap-1 shrink-0"><Eye className="w-3.5 h-3.5" /> {Number(article.views || 0).toLocaleString()}</span>
+                    </div>
+                    <h2 className="font-serif text-xl sm:text-2xl leading-snug font-bold text-stone-900 mt-3 group-hover:text-[#1A382B] transition-colors line-clamp-3">{article.title || 'Untitled article'}</h2>
+                    <p className="text-sm leading-relaxed text-stone-600 mt-3 line-clamp-3">{article.description || 'Explore this publication for an in-depth look at the topic.'}</p>
+                    <div className="mt-auto pt-5 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-8 h-8 rounded-full bg-[#EFECE6] text-[#1A382B] flex items-center justify-center text-[11px] font-bold shrink-0">{(article.author?.name || 'L').split(/\s+/).map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</div>
+                        <div className="min-w-0"><p className="text-xs font-semibold text-stone-800 truncate">{article.author?.name || 'Lumen Author'}</p><p className="text-[11px] text-stone-500">{article.publishedAt || article.createdAt ? new Date(article.publishedAt || article.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'Recently published'}</p></div>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-stone-500 shrink-0"><span className="inline-flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {article.readingTime || 1} min</span><span className="inline-flex items-center gap-1"><ThumbsUp className="w-3.5 h-3.5" /> {Number(article.likes || 0).toLocaleString()}</span><Bookmark className="w-4 h-4" /></div>
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       )}
+      {!loading && visibleArticles.length > 0 && <div className="flex items-center justify-between border-t border-[#E8E2D8] pt-5 text-xs text-stone-500"><span>Page 1 of 1 ({visibleArticles.length} results)</span><div className="flex items-center gap-2"><button disabled className="px-3 py-2 rounded-lg border border-[#E5E0D7] bg-white opacity-50">‹</button><span className="px-3 py-2 rounded-lg bg-[#1A382B] text-white font-semibold">1</span><button disabled className="px-3 py-2 rounded-lg border border-[#E5E0D7] bg-white opacity-50">›</button></div></div>}
     </div>
   );
 };
@@ -371,7 +462,7 @@ export const WritePage = () => {
        * STEP 1:
        * Create the article.
        */
-      const apiBase = import.meta.env.VITE_API_URL || 'https://content-management-system-2-he9n.onrender.com/api';
+      const apiBase = import.meta.env.VITE_API_URL || '/api';
       const createResponse = await fetch(
         `${apiBase}/articles`,
         {

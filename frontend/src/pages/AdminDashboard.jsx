@@ -7,6 +7,7 @@ import CommentsManagement from '../components/admin/CommentsManagement';
 import ReportsManagement from '../components/admin/ReportsManagement';
 import SubscriptionsManagement from '../components/admin/SubscriptionsManagement';
 import AIModerationDashboard from '../components/admin/AIModerationDashboard';
+import TopicTrendsDashboard from '../components/admin/TopicTrendsDashboard';
 import AppealsManagement from '../components/admin/AppealsManagement';
 import SpamAbuseManagement from '../components/admin/SpamAbuseManagement';
 import TrustBadge from '../components/trust/TrustBadge';
@@ -583,6 +584,7 @@ const [reviewingArticle, setReviewingArticle] = useState(false);
       label: 'Moderation', 
       icon: ShieldCheck, 
     },
+    { id: 'topic-trends', label: 'Topic & Trends', icon: Bot },
     {
       id: 'subscriptions',
       label: 'Subscriptions',
@@ -1391,6 +1393,9 @@ const [reviewingArticle, setReviewingArticle] = useState(false);
 
       case 'moderation':
         return <AIModerationDashboard />;
+
+      case 'topic-trends':
+        return <TopicTrendsDashboard user={user} onNavigate={handleTabChange} />;
 
       case 'appeals':
         return <AppealsManagement />;

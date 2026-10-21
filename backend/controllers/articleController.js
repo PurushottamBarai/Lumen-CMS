@@ -2,6 +2,10 @@ const mongoose = require('mongoose');
 const Article = require('../models/Article');
 const User = require('../models/User');
 const { notifyAuthorSubscribers, notifyAdminUsers, createNotification } = require('./notificationController');
+const { enrichTopicTrends } = require('../services/geminiTopicService');
+
+const connectTopicTrendDB = require('../config/topicTrendDB');
+const topicTrendSchema = require('../models/TopicTrend');
 
 const getUserId = (req) => {
   return req.user.id || req.user._id;
@@ -89,6 +93,7 @@ const getArticles = async (req, res) => {
         filter.$or = [
           { title: { $regex: search, $options: 'i' } },
           { description: { $regex: search, $options: 'i' } },
+          { tags: { $regex: search, $options: 'i' } },
         ];
       }
 
@@ -126,7 +131,8 @@ const getArticles = async (req, res) => {
       articles = articles.filter(
         (a) =>
           (a.title && a.title.toLowerCase().includes(term)) ||
-          (a.description && a.description.toLowerCase().includes(term))
+          (a.description && a.description.toLowerCase().includes(term)) ||
+          (Array.isArray(a.tags) && a.tags.some((tag) => String(tag).toLowerCase().includes(term)))
       );
     }
 
@@ -943,7 +949,87 @@ const getRecommendedArticles = async (req, res) => {
   }
 };
 
+
+// Analyze published article metadata to identify topics gaining attention.
+
+const getTopicTrends = async (req, res) => {
+  try {
+    let articles = [];
+
+    if (isMongoConnected()) {
+      articles = await Article.find({ status: 'published' })
+        .select(
+          'title description content category tags views likes publishedAt createdAt updatedAt status'
+        )
+        .sort({ publishedAt: -1, createdAt: -1 })
+        .lean();
+    } else {
+      const articleStore = require('../models/articleStore');
+      articles = (articleStore.inMemoryArticles || []).filter(
+        (article) => article.status === 'published'
+      );
+    }
+
+    const generatedAt = new Date();
+    const analysis = await enrichTopicTrends(articles, generatedAt);
+    const topics = analysis.topics;
+
+    const trendBasis =
+      'Rule-based topic frequency compares published article counts in consecutive 7-day windows. Rising means more articles in the latest window; Cooling means fewer articles in the latest window than in the prior window; Steady means counts differ by no more than 10%; other cases or missing window data are Insufficient data. Popular is an independent badge for topics in at least 3 articles and at least 20% of the published corpus. Engagement values are current article totals; historical engagement snapshots are not stored.';
+
+    // Save the analysis snapshot to the separate Topic Trends database.
+    // Do not save in-memory fallback results as persistent CMS analysis.
+    let historySaved = false;
+
+    let snapshotWarning = null;
+    if (isMongoConnected() && process.env.TOPIC_MONGODB_URI) {
+      try {
+        const topicTrendConnection = await connectTopicTrendDB();
+        const TopicTrend = topicTrendConnection.models.TopicTrend || topicTrendConnection.model('TopicTrend', topicTrendSchema);
+        await TopicTrend.create({ generatedAt, analysisWindowDays: 7, trendBasis, count: topics.length, topics, sourceArticleCount: articles.length });
+        historySaved = true;
+      } catch (snapshotError) {
+        snapshotWarning = 'Trend analysis is available, but its snapshot could not be saved to the separate Topic Trends database.';
+        console.error('Save topic trend snapshot error:', {
+          name: snapshotError.name,
+          code: snapshotError.code || 'UNKNOWN',
+        });
+      }
+    } else if (isMongoConnected()) {
+      snapshotWarning = 'Trend analysis is available, but snapshot history is disabled because TOPIC_MONGODB_URI is not configured.';
+    }
+
+    return res.status(200).json({
+      success: true,
+      generatedAt: generatedAt.toISOString(),
+      analysisWindowDays: 7,
+      trendBasis,
+      count: topics.length,
+      sourceArticleCount: articles.length,
+      methodology: analysis.aiEnhanced
+        ? 'Gemini semantic topic grouping and summaries; frequency, engagement, and classifications remain rule-based.'
+        : 'Rule-based topic extraction and metrics; Gemini summaries are added when configured and available.',
+      popularRule: 'At least 3 related published articles and at least 20% of the published corpus.',
+      topics,
+      historySaved,
+      ...(snapshotWarning ? { snapshotWarning } : {}),
+    });
+  } catch (error) {
+    console.error('Get topic trends error:', {
+      name: error.name,
+      code: error.code || 'UNKNOWN',
+    });
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to analyze topic trends.',
+    });
+  }
+};
+
+
 module.exports = {
+  getTopicTrends,
   createArticle,
   getArticles,
   getArticleById,

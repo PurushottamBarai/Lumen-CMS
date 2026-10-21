@@ -33,13 +33,10 @@ const connectDB = async () => {
       minPoolSize: 2,
     });
 
-    console.log(
-      '[Lumen Database] Connected to MongoDB Atlas (cluster0.c6ksgra.mongodb.net)'
-    );
-
-    console.log(
-      `[Lumen Database] Database Name: ${conn.connection.name}`
-    );
+    console.log('[Lumen Database] Connected.', {
+      database: conn.connection.name,
+      collectionModel: 'Article',
+    });
 
     // Reconnect on disconnect
     mongoose.connection.on('disconnected', () => {
@@ -52,14 +49,10 @@ const connectDB = async () => {
 
     return conn;
   } catch (error) {
-    const safeMsg = error.message.replace(
-      /:\/\/.*@/,
-      '://<credentials>@'
-    );
-
-    console.error(
-      `[Lumen Database] MongoDB Connection Error: ${safeMsg}`
-    );
+    console.error('[Lumen Database] MongoDB connection failed.', {
+      name: error.name,
+      code: error.code || error.cause?.code || 'UNKNOWN',
+    });
 
     throw error;
   }

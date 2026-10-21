@@ -106,29 +106,14 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-// Method to verify entered password against hashed password in DB
+// Verify credentials only against the stored bcrypt hash. Demo accounts must
+// be provisioned like other users; known email addresses do not bypass hashing.
 userSchema.methods.matchPassword = async function (enteredPassword) {
   try {
-    const isMatch = await bcrypt.compare(enteredPassword, this.password);
-    if (isMatch) return true;
-  } catch (err) { }
-
-  // Fallback match exclusively for standard demo seed accounts
-  const DEMO_EMAILS = [
-    'admin@lumen.com',
-    'author@lumen.com',
-    'reader@lumen.com',
-    'priya.mehta@lumen.com',
-    'thomas.okeke@lumen.com',
-    'john.reader@lumen.com',
-  ];
-  if (DEMO_EMAILS.includes(this.email?.toLowerCase())) {
-    if (['password123', 'admin123', 'author123', 'reader123'].includes(enteredPassword)) {
-      return true;
-    }
+    return await bcrypt.compare(enteredPassword, this.password);
+  } catch (err) {
+    return false;
   }
-
-  return false;
 };
 
 const User = mongoose.model('User', userSchema);

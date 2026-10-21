@@ -200,6 +200,16 @@ export const articleAPI = {
   reviewArticle: (id, data) =>
     API.patch(`/articles/${id}/review`, data),
 
+  // AI Article Summarization (Groq Qwen)
+  getArticleSummary: (id) =>
+    API.get('/articles/' + id + '/summary'),
+
+  generateArticleSummary: (id, force = false) =>
+    API.post('/articles/' + id + '/summarize' + (force ? '?force=true' : '')),
+
+  chatWithArticle: (id, data) =>
+    API.post('/articles/' + id + '/chat', data),
+
   // Admin: get all non-draft articles
   getAllArticlesForAdmin: () =>
     API.get('/articles/admin/all'),

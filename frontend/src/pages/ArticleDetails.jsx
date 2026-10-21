@@ -8,6 +8,7 @@ import {
   reportAPI,
 } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import AiSidePanel from '../components/article/AiSidePanel';
 import {
   ArrowLeft,
   Clock,
@@ -52,6 +53,7 @@ const ArticleDetails = () => {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   const [subscriberCount, setSubscriberCount] = useState(0);
+  const [isAiPanelOpen, setIsAiPanelOpen] = useState(true);
 
   // Comments State
   const [comments, setComments] = useState([
@@ -827,7 +829,7 @@ const ArticleDetails = () => {
         />
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
+      <div className={`mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8 transition-all ${isAiPanelOpen ? "max-w-7xl" : "max-w-4xl"}`}>
 
         {/* Navigation Top Bar */}
         <div className="flex items-center justify-between">
@@ -892,11 +894,29 @@ const ArticleDetails = () => {
               {article.category}
             </span>
 
+            {/* AI Summary Toggle Button */}
+            <button
+              onClick={() => setIsAiPanelOpen(!isAiPanelOpen)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition ${
+                isAiPanelOpen
+                  ? 'bg-sky-50 text-sky-800 border-sky-300'
+                  : 'bg-white text-stone-700 border-[#EDE8DF] hover:bg-[#FAF7F2]'
+              }`}
+              title="Toggle AI Summary & Chat"
+            >
+              <Sparkles className={`w-3.5 h-3.5 ${isAiPanelOpen ? 'text-sky-600 fill-sky-200' : 'text-stone-500'}`} />
+              <span>Summary</span>
+            </button>
+
           </div>
         </div>
 
-        {/* Main Content Card */}
-        <article className="bg-white border border-[#EDE8DF] rounded-3xl p-6 sm:p-12 shadow-xs space-y-8">
+        {/* Two-Column Responsive Layout */}
+        <div className={`grid grid-cols-1 ${isAiPanelOpen ? "lg:grid-cols-12 gap-8 items-start" : "gap-8"}`}>
+          {/* Left Column: Editorial Article */}
+          <div className={isAiPanelOpen ? 'lg:col-span-8 space-y-8' : 'w-full space-y-8'}>
+            {/* Main Content Card */}
+            <article className="bg-white border border-[#EDE8DF] rounded-3xl p-6 sm:p-12 shadow-xs space-y-8">
 
           {/* Article Title & Subtitle */}
           <div className="space-y-4 border-b border-[#F5F2EB] pb-6">
@@ -1012,6 +1032,8 @@ const ArticleDetails = () => {
               />
             </div>
           )}
+
+
 
           {/* Article Body Content */}
           <div className="prose max-w-none text-stone-800 text-sm sm:text-base leading-relaxed space-y-4 whitespace-pre-line font-serif">
@@ -1329,6 +1351,20 @@ const ArticleDetails = () => {
             </div>
           </section>
         )}
+          </div>
+
+          {/* Right Column: AI Companion Panel */}
+          {isAiPanelOpen && (
+            <div className="lg:col-span-4 sticky top-24">
+              <AiSidePanel
+                articleId={article._id || article.id}
+                title={article.title}
+                initialSummary={article.aiSummary}
+                onClose={() => setIsAiPanelOpen(false)}
+              />
+            </div>
+          )}
+        </div>
 
       </div>
 

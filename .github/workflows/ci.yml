@@ -1,0 +1,54 @@
+name: Lumen CMS CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.adminCommand(\"ping\")'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Install Root Dependencies
+        run: npm install
+
+      - name: Install Backend Dependencies
+        run: npm --prefix backend install
+
+      - name: Install Frontend Dependencies
+        run: npm --prefix frontend install
+
+      - name: Run Backend Automated Tests
+        run: npm test
+        env:
+          NODE_ENV: test
+          JWT_SECRET: lumen_ci_test_secret_key_2026
+          MONGODB_URI: mongodb://127.0.0.1:27017
+
+      - name: Build Frontend Application
+        run: npm --prefix frontend run build

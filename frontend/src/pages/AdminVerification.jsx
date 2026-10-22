@@ -1,13 +1,10 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
 import {
   adminVerificationAPI,
 } from "../services/api";
 import "./AdminVerification.css";
 
 function AdminVerification() {
-  const { user } = useAuth();
   const [items, setItems] = useState([]);
   const [selectedItem, setSelectedItem] = useState(null);
 
@@ -436,74 +433,6 @@ function AdminVerification() {
 
   return (
     <div className="admin-page">
-
-      {/* =================================================
-          HEADER
-      ================================================= */}
-
-      <header className="admin-header">
-
-        <div className="brand">
-
-          <div className="brand-icon">
-            ▣
-          </div>
-
-          <Link to="/" style={{ color: "inherit", textDecoration: "none" }}>
-            Lumen
-          </Link>
-
-        </div>
-
-        <nav className="navigation">
-
-          <Link to="/" style={{ color: "inherit", textDecoration: "none" }}>
-            ⌘ Home
-          </Link>
-
-          <Link to="/browse" style={{ color: "inherit", textDecoration: "none" }}>
-            ⌕ Browse
-          </Link>
-
-          <Link to="/admin" style={{ color: "inherit", textDecoration: "none" }}>
-            👥 User Mgt
-          </Link>
-
-          <Link to="/admin/verification" className="active-nav" style={{ color: "inherit", textDecoration: "none" }}>
-            ☑ Verification
-          </Link>
-
-          <Link to="/profile" style={{ color: "inherit", textDecoration: "none" }}>
-            ♙ Profile
-          </Link>
-
-        </nav>
-
-        <div className="admin-account">
-
-  <div className="admin-user-info">
-    <span>
-      {user?.name || "Admin"} (admin)
-    </span>
-  </div>
-
-  <span className="notification">
-    ♧
-  </span>
-
-  <div className="avatar">
-    {user?.name
-      ? user.name
-          .split(" ")
-          .map((name) => name[0])
-          .join("")
-          .slice(0, 2)
-          .toUpperCase()
-      : "AD"}
-  </div>
-
-</div>
-      </header>
 
       {/* =================================================
           MAIN CONTENT

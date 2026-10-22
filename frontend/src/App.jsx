@@ -10,7 +10,7 @@ import {
 
 import { AuthProvider } from './context/AuthContext';
 
-import Navbar from './components/Navbar';
+import AppSidebar from './components/AppSidebar';
 import Footer from './components/Footer';
 import ProtectedRoute from './components/ProtectedRoute';
 import RoleRoute from './components/RoleRoute';
@@ -39,11 +39,12 @@ function App() {
   return (
     <AuthProvider>
       <Router>
-        <div className="min-h-screen flex flex-col bg-[#FAF7F2] text-stone-900 selection:bg-[#1A382B] selection:text-white">
-          <Navbar />
+        <div className="min-h-screen flex flex-col md:flex-row bg-[#FAF7F2] text-stone-900 selection:bg-[#1A382B] selection:text-white">
+          <AppSidebar />
 
-          <main className="flex-1">
-            <Routes>
+          <div className="flex min-w-0 flex-1 flex-col">
+            <main className="min-w-0 flex-1">
+              <Routes>
 
               {/* ================================================= */}
               {/* PUBLIC ROUTES */}
@@ -283,10 +284,11 @@ function App() {
                 element={<Navigate to="/" replace />}
               />
 
-            </Routes>
-          </main>
+              </Routes>
+            </main>
 
-          <Footer />
+            <Footer />
+          </div>
         </div>
       </Router>
     </AuthProvider>

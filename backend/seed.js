@@ -93,6 +93,8 @@ const seedFullDatabase = async () => {
       heroImage: art.heroImage,
       views: art.views || 0,
       likes: art.likes || 0,
+      shares: art.shares || Math.max(12, Math.round((art.likes || 20) * 0.34)),
+      commentsCount: art.commentsCount || Math.max(4, Math.round((art.likes || 20) * 0.22)),
       readingTime: art.readingTime || 5,
       author: art.author?.email === 'priya.mehta@lumen.com' ? priya._id : thomas._id,
       createdAt: art.createdAt,

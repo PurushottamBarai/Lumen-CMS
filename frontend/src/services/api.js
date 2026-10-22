@@ -196,6 +196,10 @@ export const articleAPI = {
   viewArticle: (id) =>
     API.patch(`/articles/${id}/view`),
 
+  // Share article & increment citation/share metric
+  shareArticle: (id, platform = 'link') =>
+    API.patch(`/articles/${id}/share`, { platform }),
+
   // Admin review
   reviewArticle: (id, data) =>
     API.patch(`/articles/${id}/review`, data),
@@ -371,6 +375,18 @@ export const spamAbuseAPI = {
   getUserCommentActivity: (userId) => API.get(`/spam-abuse/user/${userId}/activity`),
   restrictUser: (userId, data) => API.patch(`/spam-abuse/user/${userId}/restrict`, data),
   getPendingReports: () => API.get('/spam-abuse/reports/pending'),
+};
+
+// Author Performance Analytics API
+export const authorAnalyticsAPI = {
+  getMyAnalytics: (params) =>
+    API.get('/author-analytics/me', { params }),
+
+  getAuthorAnalytics: (authorId, params) =>
+    API.get(`/author-analytics/author/${authorId}`, { params }),
+
+  shareArticle: (articleId, platform = 'link') =>
+    API.patch(`/articles/${articleId}/share`, { platform }),
 };
 
 // Alias QuizAPI for backwards compatibility

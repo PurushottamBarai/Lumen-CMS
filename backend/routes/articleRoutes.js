@@ -13,6 +13,7 @@ const {
   getPublishedArticlesByAuthor,
   likeArticle,
   incrementViews,
+  shareArticle,
   deleteArticle,
   reviewArticle,
   getAllArticlesForAdmin,
@@ -53,6 +54,12 @@ router.get(
 router.patch(
   '/:id/view',
   incrementViews
+);
+
+// Share article & increment share count
+router.patch(
+  '/:id/share',
+  shareArticle
 );
 
 // =====================================================

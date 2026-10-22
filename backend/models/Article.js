@@ -139,6 +139,18 @@ const articleSchema = new mongoose.Schema(
       min: 0,
     },
 
+    shares: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    commentsCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
     readingTime: {
       type: Number,
       default: 1,

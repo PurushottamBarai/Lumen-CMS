@@ -42,6 +42,8 @@ const ArticleDetails = () => {
   const [error, setError] = useState('');
   const [likes, setLikes] = useState(0);
   const [hasLiked, setHasLiked] = useState(false);
+  const [shareCount, setShareCount] = useState(0);
+  const [shareCopied, setShareCopied] = useState(false);
 
   // Reading Progress Bar State
   const [scrollProgress, setScrollProgress] = useState(0);
@@ -552,6 +554,7 @@ const ArticleDetails = () => {
 
         setArticle(art);
         setLikes(art.likes || 0);
+        setShareCount(art.shares || 0);
 
         /*
          * Fetch subscription information immediately
@@ -683,6 +686,26 @@ const ArticleDetails = () => {
         'Like error:',
         err
       );
+    }
+  };
+
+  const handleShareArticle = async () => {
+    try {
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(window.location.href);
+      }
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2500);
+
+      const res = await articleAPI.shareArticle(id, 'link');
+      if (res.data?.success && typeof res.data.shares === 'number') {
+        setShareCount(res.data.shares);
+      } else {
+        setShareCount((prev) => prev + 1);
+      }
+    } catch (err) {
+      console.warn('Share error:', err);
+      setShareCount((prev) => prev + 1);
     }
   };
 
@@ -1003,6 +1026,19 @@ const ArticleDetails = () => {
                   />
 
                   {likes} likes
+                </button>
+
+                <button
+                  onClick={handleShareArticle}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-semibold transition ${
+                    shareCopied
+                      ? 'bg-blue-50 text-blue-700 border-blue-200'
+                      : 'bg-[#FAF7F2] text-stone-700 border-[#EDE8DF] hover:bg-[#EFECE6]'
+                  }`}
+                  title="Share article & copy citation link"
+                >
+                  <Share2 className="w-3.5 h-3.5 text-blue-600" />
+                  <span>{shareCopied ? 'Link Copied!' : `${shareCount || article.shares || 0} shares`}</span>
                 </button>
 
               </div>

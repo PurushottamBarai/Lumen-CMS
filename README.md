@@ -81,6 +81,16 @@ Administrators can verify content and manage the overall platform.
 - Support content-related notifications
 - Support quiz-related notifications
 
+### 📈 Author Performance Analytics
+- Real-time article views, likes, shares, comments, and engagement rates
+- Identification of author's best performing articles
+- Author's popular topics and category dominance analysis
+- Contributor standing & platform ranking badges
+- Interactive readership & engagement velocity charts
+- Content freshness lifecycle audits
+- Article-by-article performance matrix with CSV export
+- Direct citation & share tracking matching Stitch UI design
+
 ---
 
 ## 🏗️ Project Modules
@@ -94,6 +104,7 @@ Administrators can verify content and manage the overall platform.
 | Content Management | Rakesh |
 | Search & Browse | Unnati |
 | Quiz Attempt & Result + Notification | Ashmitha |
+| Author Performance Analytics | Sameer |
 | Final Integration | Aravind Kumar |
 
 ---

@@ -34,6 +34,7 @@ import DiscussionPage from './pages/DiscussionPage';
 import ChatPage from './pages/ChatPage';
 import QuizBuilder from './pages/QuizBuilder';
 import Appeals from './pages/Appeals';
+import AuthorAnalytics from './pages/AuthorAnalytics';
 
 function App() {
   return (
@@ -129,6 +130,21 @@ function App() {
               <Route
                 path="/profile/:id"
                 element={<PublicProfile />}
+              />
+
+              {/* ================================================= */}
+              {/* AUTHOR PERFORMANCE ANALYTICS */}
+              {/* ================================================= */}
+
+              <Route
+                path="/analytics"
+                element={
+                  <ProtectedRoute>
+                    <RoleRoute allowedRoles={['author', 'admin']}>
+                      <AuthorAnalytics />
+                    </RoleRoute>
+                  </ProtectedRoute>
+                }
               />
 
 

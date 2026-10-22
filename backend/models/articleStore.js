@@ -400,7 +400,17 @@ Those two letters — 'LO' — became the first transmission on ARPANET, the pre
   },
 ];
 
-let inMemoryArticles = [...seededArticles];
+let inMemoryArticles = seededArticles.map((a) => ({
+  ...a,
+  shares:
+    typeof a.shares === 'number'
+      ? a.shares
+      : Math.max(12, Math.round((a.likes || 20) * 0.34)),
+  commentsCount:
+    typeof a.commentsCount === 'number'
+      ? a.commentsCount
+      : Math.max(4, Math.round((a.likes || 20) * 0.22)),
+}));
 
 module.exports = {
   seededArticles,

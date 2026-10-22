@@ -4,6 +4,9 @@ const Article = require('../models/Article');
 const {
   analyzeContent: analyzeContentService,
 } = require('../services/contentQualityService');
+const {
+  generateContentSuggestions,
+} = require('../services/aiContentSuggestionsService');
 
 const analyzeContent = async (req, res) => {
   try {
@@ -73,6 +76,46 @@ const analyzeContent = async (req, res) => {
   }
 };
 
+const generateSuggestions = async (req, res) => {
+  const {
+    title = '',
+    description = '',
+    content = '',
+    category = '',
+    tags = [],
+  } = req.body;
+
+  if (typeof content !== 'string' || !content.trim()) {
+    return res.status(400).json({
+      success: false,
+      message: 'Article content is required for AI suggestions.',
+    });
+  }
+
+  try {
+    const suggestions = await generateContentSuggestions({
+      title,
+      description,
+      content,
+      category,
+      tags,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'AI content suggestions generated successfully.',
+      suggestions,
+    });
+  } catch (error) {
+    console.error('[Content Quality] Suggestion error:', error.message);
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Failed to generate AI content suggestions.',
+    });
+  }
+};
+
 module.exports = {
   analyzeContent,
+  generateSuggestions,
 };

@@ -320,6 +320,8 @@ export const trustAPI = {
 export const contentQualityAPI = {
   analyze: (data) =>
     API.post('/content-quality/analyze', data),
+  suggest: (data) =>
+    API.post('/content-quality/suggestions', data, { timeout: 60000 }),
 };
 
 // AI Content Moderation API
@@ -367,5 +369,4 @@ export const spamAbuseAPI = {
 export const QuizAPI = quizAPI;
 
 export default API;
-
 

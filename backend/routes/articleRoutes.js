@@ -28,6 +28,12 @@ const {
   optionalAuth,
 } = require('../middleware/auth');
 
+const {
+  getAuthorFreshnessAlerts,
+  auditDraftHandler,
+  getExplanationHandler,
+} = require('../controllers/freshnessController');
+
 const router = express.Router();
 
 // =====================================================
@@ -166,6 +172,11 @@ router.patch(
 
 // Recommended articles
 router.get('/:id/recommendations', optionalAuth, getRecommendedArticles);
+
+// Content Freshness & Explanations (Features 9 & 10)
+router.get('/freshness/alerts', optionalAuth, getAuthorFreshnessAlerts);
+router.post('/freshness/audit', optionalAuth, auditDraftHandler);
+router.get('/:id/explanation', optionalAuth, getExplanationHandler);
 
 router.get('/:id', optionalAuth, getArticleById);
 

@@ -200,6 +200,16 @@ export const articleAPI = {
   reviewArticle: (id, data) =>
     API.patch(`/articles/${id}/review`, data),
 
+  // Content Freshness & Explanations (Features 9 & 10)
+  getFreshnessAlerts: () =>
+    API.get('/articles/freshness/alerts'),
+
+  auditDraftFreshness: (data) =>
+    API.post('/articles/freshness/audit', data),
+
+  getRecommendationExplanation: (id, params) =>
+    API.get('/articles/' + id + '/explanation', { params }),
+
   // Admin: get all non-draft articles
   getAllArticlesForAdmin: () =>
     API.get('/articles/admin/all'),

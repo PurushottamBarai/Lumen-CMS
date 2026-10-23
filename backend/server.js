@@ -119,6 +119,9 @@ app.use('/api/spam-abuse', spamAbuseRoutes);
 
 // User Trust & Reputation
 app.use('/api/trust', trustRoutes);
+// Personalized Recommendations & Explanations (Pranay Module)
+const recommendationRoutes = require('./routes/recommendationRoutes');
+app.use('/api/recommendations', recommendationRoutes);
 
 
 

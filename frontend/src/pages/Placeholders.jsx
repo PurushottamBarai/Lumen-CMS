@@ -3,6 +3,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { articleAPI } from '../services/api';
+import ForYouFeed from '../components/recommendations/ForYouFeed';
 import {
   BookOpen,
   LayoutGrid,
@@ -97,6 +98,23 @@ export const HomePage = () => {
           )}
         </div>
       </div>
+      {/* Editorial Tabs: Trending & For You (Lumen 2 Design) */}
+      <section className="space-y-6">
+        <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-xl text-xs font-bold shadow-xs">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>For You</span>
+            </div>
+            <span className="text-xs font-medium text-slate-500">
+              Personalized dispatches curated for your reading interests
+            </span>
+          </div>
+        </div>
+
+        {/* Your Dynamic Recommendation Feed */}
+        <ForYouFeed />
+      </section>
 
       {/* Platform Pillars */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -540,7 +558,7 @@ export const BrowsePage = () => {
                       </span>
                     </div>
 
-                    <div className="p-5 sm:p-6 flex flex-col min-w-0 justify-between">
+<div className="p-5 sm:p-6 flex flex-col min-w-0 justify-between">
                       <div className="space-y-3">
                         <div className="flex items-center justify-between gap-3 text-xs text-stone-500">
                           <span className="truncate">
@@ -554,12 +572,16 @@ export const BrowsePage = () => {
                           </span>
                         </div>
 
-                        {/* Purushottam's Recommendation Badge */}
-                        <RecommendationBadge
-                          type="trending"
-                          articleId={article._id || article.id}
-                          category={article.category}
-                        />
+                        {/* Recommendation Badge (Supports Personalized & Trending) */}
+                        {article.recommendation ? (
+                          <RecommendationBadge recommendation={article.recommendation} />
+                        ) : (
+                          <RecommendationBadge
+                            type="trending"
+                            articleId={article._id || article.id}
+                            category={article.category}
+                          />
+                        )}
 
                         <h2 className="font-serif text-xl sm:text-2xl leading-snug font-bold text-stone-900 mt-2 line-clamp-2 group-hover:text-emerald-900 transition">
                           {article.title}
@@ -569,7 +591,6 @@ export const BrowsePage = () => {
                           {article.description}
                         </p>
                       </div>
-
                       <div className="mt-auto pt-5 flex items-center justify-between gap-3 border-t border-[#F5F2EB]">
                         <div className="flex items-center gap-2 min-w-0">
                           <div className="w-8 h-8 rounded-full bg-[#EFECE6] text-[#1A382B] flex items-center justify-center font-bold text-xs uppercase shrink-0">

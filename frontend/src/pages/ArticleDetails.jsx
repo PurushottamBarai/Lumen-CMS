@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import RecommendationBadge from '../components/recommendations/RecommendationBadge';
 import axios from 'axios';
 import {
   articleAPI,
@@ -562,10 +563,18 @@ const ArticleDetails = () => {
           );
         }
 
-        // Increment view count
+    // Increment view count
         articleAPI
           .viewArticle(id)
           .catch(() => {});
+
+        // Track reading history for Personalized Recommendations (Pranay Module)
+        const userToken = localStorage.getItem('lumen_token');
+        if (userToken) {
+          axios
+            .post('/api/recommendations/track-view', { articleId: id })
+            .catch(() => {});
+        }
 
         // Fetch Recommendations
         try {
@@ -1288,11 +1297,23 @@ const ArticleDetails = () => {
                     className="bg-white border border-[#EDE8DF] rounded-3xl p-5 shadow-xs flex flex-col justify-between space-y-3 hover:border-stone-400 transition"
                   >
 
-                    <div className="space-y-2">
+  <div className="space-y-2">
 
-                      <span className="px-2.5 py-0.5 bg-[#FAF7F2] border border-[#EDE8DF] rounded-full font-bold text-[10px] text-stone-700 uppercase tracking-wider">
-                        {rel.category}
-                      </span>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="px-2.5 py-0.5 bg-[#FAF7F2] border border-[#EDE8DF] rounded-full font-bold text-[10px] text-stone-700 uppercase tracking-wider">
+                          {rel.category}
+                        </span>
+
+                        {/* ⭐ Blue Why Linked / Why Recommended Badge (Pranay Module) */}
+                        <RecommendationBadge
+                          recommendation={
+                            rel.recommendation || {
+                              badgeText: 'Why Linked',
+                              explanation: `Matched via #${rel.category || 'Editorial'}`,
+                            }
+                          }
+                        />
+                      </div>
 
                       <h4 className="font-serif font-bold text-stone-900 text-sm leading-snug line-clamp-2 hover:text-[#1A382B]">
 

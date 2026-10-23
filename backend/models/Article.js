@@ -16,6 +16,11 @@ const articleSchema = new mongoose.Schema(
       default: '',
     },
 
+    keyTakeaways: {
+      type: [String],
+      default: [],
+    },
+
     content: {
       type: String,
       required: [true, 'Article content is required'],

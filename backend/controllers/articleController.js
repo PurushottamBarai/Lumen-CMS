@@ -18,12 +18,21 @@ const isArticleOwner = (article, userId) => {
 // Create a new article
 const createArticle = async (req, res) => {
   try {
-    const { title, description, content, category, tags, status } = req.body;
+    const {
+      title,
+      description,
+      keyTakeaways,
+      content,
+      category,
+      tags,
+      status,
+    } = req.body;
     const initialStatus = status === 'pending' ? 'pending' : 'draft';
 
     const article = await Article.create({
       title,
       description,
+      keyTakeaways: Array.isArray(keyTakeaways) ? keyTakeaways : [],
       content,
       category,
       tags: Array.isArray(tags) ? tags : [],
@@ -234,10 +243,20 @@ const updateArticle = async (req, res) => {
       });
     }
 
-    const { title, description, content, category, tags } = req.body;
+    const {
+      title,
+      description,
+      keyTakeaways,
+      content,
+      category,
+      tags,
+    } = req.body;
 
     if (title !== undefined) article.title = title;
     if (description !== undefined) article.description = description;
+    if (keyTakeaways !== undefined) {
+      article.keyTakeaways = Array.isArray(keyTakeaways) ? keyTakeaways : [];
+    }
     if (content !== undefined) article.content = content;
     if (category !== undefined) article.category = category;
 

@@ -29,6 +29,8 @@ const WriteArticle = () => {
   const isEditMode = Boolean(id);
 
   const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [keyTakeaways, setKeyTakeaways] = useState([]);
   const [category, setCategory] = useState('');
   const [content, setContent] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
@@ -58,6 +60,12 @@ const WriteArticle = () => {
 const [qualityLoading, setQualityLoading] = useState(false);
 const [qualityResult, setQualityResult] = useState(null);
 const [qualityError, setQualityError] = useState('');
+const [qualitySignature, setQualitySignature] = useState('');
+const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+const [suggestionsResult, setSuggestionsResult] = useState(null);
+const [suggestionsSignature, setSuggestionsSignature] = useState('');
+const [suggestionsError, setSuggestionsError] = useState('');
+const [suggestionDecisions, setSuggestionDecisions] = useState({});
   useEffect(() => {
     if (isEditMode) {
       fetchArticle();
@@ -75,6 +83,8 @@ const [qualityError, setQualityError] = useState('');
         const article = response.data.article;
 
         setTitle(article.title || '');
+        setDescription(article.description || '');
+        setKeyTakeaways(article.keyTakeaways || []);
         setCategory(article.category || '');
         setContent(article.content || '');
         setVideoUrl(article.videoUrl || '');
@@ -169,6 +179,12 @@ const [qualityError, setQualityError] = useState('');
     tags.length > 0 &&
     content.trim();
 
+  const getCurrentQualitySignature = () =>
+    JSON.stringify({ title, description, content, category, tags });
+  const qualityIsCurrent =
+    Boolean(qualityResult) &&
+    qualitySignature === getCurrentQualitySignature();
+
   const validateArticle = () => {
     if (!title.trim()) {
       setErrorMsg('Article title is required.');
@@ -220,10 +236,11 @@ const [qualityError, setQualityError] = useState('');
 
   setQualityLoading(true);
 
+  const analysisSignature = getCurrentQualitySignature();
   try {
     const response = await contentQualityAPI.analyze({
       title: title.trim(),
-      description: '',
+      description: description.trim(),
       content: content.trim(),
       category: category.trim(),
       tags,
@@ -232,6 +249,7 @@ const [qualityError, setQualityError] = useState('');
 
     if (response.data?.success) {
       setQualityResult(response.data.analysis);
+      setQualitySignature(analysisSignature);
     } else {
       setQualityError(
         response.data?.message ||
@@ -253,8 +271,108 @@ const [qualityError, setQualityError] = useState('');
   }
 };
 
+  const handleGenerateSuggestions = async () => {
+    setSuggestionsError('');
+    setSuggestionsResult(null);
+    setSuggestionDecisions({});
+
+    if (!content.trim()) {
+      setSuggestionsError('Add article content before requesting AI suggestions.');
+      return;
+    }
+
+    const suggestionSignature = getCurrentQualitySignature();
+    setSuggestionsLoading(true);
+    try {
+      const response = await contentQualityAPI.suggest({
+        title: title.trim(),
+        description: description.trim(),
+        content: content.trim(),
+        category: category.trim(),
+        tags,
+      });
+
+      if (response.data?.success && response.data?.suggestions) {
+        if (suggestionSignature !== getCurrentQualitySignature()) {
+          setSuggestionsError(
+            'The article changed while suggestions were generating. Request fresh suggestions for the current draft.'
+          );
+          return;
+        }
+        setSuggestionsResult(response.data.suggestions);
+        setSuggestionsSignature(suggestionSignature);
+      } else {
+        setSuggestionsError(
+          response.data?.message || 'Failed to generate AI suggestions.'
+        );
+      }
+    } catch (error) {
+      console.error('[AI Content Suggestions Error]:', error);
+      setSuggestionsError(
+        error.response?.data?.message ||
+          'Unable to generate AI suggestions. Please try again.'
+      );
+    } finally {
+      setSuggestionsLoading(false);
+    }
+  };
+
+  const decideSuggestion = (key, decision, applySuggestion) => {
+    if (decision === 'accepted' && applySuggestion?.() === false) return;
+    setSuggestionDecisions((previous) => ({
+      ...previous,
+      [key]: decision,
+    }));
+  };
+
+  const acceptWritingSuggestion = (suggestion, key) => {
+    const occurrences = content.split(suggestion.original).length - 1;
+    if (occurrences !== 1) {
+      setSuggestionsError(
+        'This passage has changed since the suggestion was generated. Generate fresh suggestions to apply it.'
+      );
+      return false;
+    }
+
+    setContent(content.replace(suggestion.original, suggestion.replacement));
+    setSuggestionsError('');
+    return true;
+  };
+
+  const renderSuggestionActions = (key, applySuggestion) => {
+    const decision = suggestionDecisions[key];
+    if (decision) {
+      return (
+        <span className="text-xs font-semibold text-stone-500">
+          {decision === 'accepted' ? 'Accepted' : 'Rejected'}
+        </span>
+      );
+    }
+
+    return (
+      <div className="flex shrink-0 gap-2">
+        <button
+          type="button"
+          onClick={() => decideSuggestion(key, 'accepted', applySuggestion)}
+          className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-800 text-xs font-semibold hover:bg-emerald-100"
+        >
+          Accept
+        </button>
+        <button
+          type="button"
+          onClick={() => decideSuggestion(key, 'rejected')}
+          className="px-3 py-1.5 rounded-lg bg-stone-100 text-stone-600 text-xs font-semibold hover:bg-stone-200"
+        >
+          Reject
+        </button>
+      </div>
+    );
+  };
+
   const getArticleData = () => ({
     title: title.trim(),
+    description: description.trim(),
+    keyTakeaways,
     category: category.trim(),
     tags,
     content: content.trim(),
@@ -384,6 +502,42 @@ const [qualityError, setQualityError] = useState('');
   }
 
   const isPendingReview = isEditMode && articleStatus === 'pending';
+  const contentWordCount = content.trim()
+    ? content.trim().split(/\s+/).filter(Boolean).length
+    : 0;
+  const hasHeadings = /^#{1,6}\s+.+/m.test(content);
+  const suggestionsAreCurrent =
+    Boolean(suggestionsResult) &&
+    suggestionsSignature === getCurrentQualitySignature();
+  const qualityChecklist = [
+    { label: 'Article title', complete: Boolean(title.trim()), required: true },
+    { label: 'Category selected', complete: Boolean(category.trim()), required: true },
+    { label: 'At least one tag', complete: tags.length > 0, required: true },
+    { label: 'Article content added', complete: Boolean(content.trim()), required: true },
+    { label: 'Short summary', complete: Boolean(description.trim()), required: false },
+    { label: 'At least 300 words', complete: contentWordCount >= 300, required: false },
+    { label: 'Section headings', complete: hasHeadings, required: false },
+    {
+      label: 'Grammar review',
+      complete: qualityIsCurrent ? qualityResult.grammar?.issueCount === 0 : null,
+      required: false,
+    },
+    {
+      label: 'Readability review',
+      complete: qualityIsCurrent ? qualityResult.readability?.score >= 60 : null,
+      required: false,
+    },
+    {
+      label: 'Clarity review',
+      complete: qualityIsCurrent ? qualityResult.clarity?.score >= 70 : null,
+      required: false,
+    },
+    {
+      label: 'Repetition review',
+      complete: qualityIsCurrent ? qualityResult.repetition?.issueCount === 0 : null,
+      required: false,
+    },
+  ];
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-6">
@@ -444,6 +598,24 @@ const [qualityError, setQualityError] = useState('');
             disabled={isPendingReview}
             className="w-full px-4 py-3 bg-[#FAF7F2] border border-[#EDE8DF] rounded-xl text-sm text-stone-900 focus:outline-none focus:border-[#1A382B] disabled:opacity-60"
           />
+        </div>
+
+        <div>
+          <label className="block text-sm font-bold text-stone-900 mb-2">
+            Summary <span className="font-normal text-stone-400">(Optional)</span>
+          </label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Add a short summary of your article..."
+            maxLength={500}
+            rows={3}
+            disabled={isPendingReview}
+            className="w-full px-4 py-3 bg-[#FAF7F2] border border-[#EDE8DF] rounded-xl text-sm text-stone-900 leading-relaxed focus:outline-none focus:border-[#1A382B] resize-y disabled:opacity-60"
+          />
+          <p className="text-right mt-1 text-xs text-stone-400">
+            {description.length}/500 characters
+          </p>
         </div>
 
         {/* Category + Tags */}
@@ -515,6 +687,34 @@ const [qualityError, setQualityError] = useState('');
           </div>
         </div>
 
+        {keyTakeaways.length > 0 && (
+          <div className="p-4 bg-[#FAF7F2] border border-[#EDE8DF] rounded-2xl">
+            <h3 className="text-sm font-bold text-stone-900 mb-3">Key Takeaways</h3>
+            <ul className="space-y-2">
+              {keyTakeaways.map((takeaway, index) => (
+                <li key={`${takeaway}-${index}`} className="flex items-start gap-2 text-sm text-stone-700">
+                  <span className="mt-1 text-[#D97736]">•</span>
+                  <span className="flex-1">{takeaway}</span>
+                  {!isPendingReview && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setKeyTakeaways((previous) =>
+                          previous.filter((_, itemIndex) => itemIndex !== index)
+                        )
+                      }
+                      aria-label={`Remove takeaway ${index + 1}`}
+                      className="text-stone-400 hover:text-rose-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {/* Article Content */}
         <div>
           <label className="block text-sm font-bold text-stone-900 mb-2">
@@ -552,7 +752,7 @@ const [qualityError, setQualityError] = useState('');
           />
         </div>
 {/* ------------------------------------------------ */}
-{/* Content Quality & Duplicate Detection */}
+{/* AI Writing Suggestions & Content Quality */}
 {/* ------------------------------------------------ */}
 <div className="pt-6 border-t border-[#F5F2EB]">
   <FreshnessAuditBox title={title} content={content} />
@@ -561,32 +761,153 @@ const [qualityError, setQualityError] = useState('');
       <div className="flex items-center gap-2">
         <Sparkles className="w-5 h-5 text-[#D97736]" />
         <h3 className="font-serif font-bold text-stone-900">
-          Content Quality & Duplicate Detection
+          AI Writing Suggestions & Content Quality
         </h3>
       </div>
 
       <p className="text-xs text-stone-500 mt-1">
-        Check grammar, readability, structure and similar published articles.
+        Get editorial suggestions and review grammar, readability, clarity, repetition and structure.
       </p>
     </div>
 
-    <button
-      type="button"
-      onClick={handleAnalyzeContent}
-      disabled={
-        qualityLoading ||
-        isPendingReview ||
-        (!title.trim() && !content.trim())
-      }
-      className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#1A382B] hover:bg-[#11261D] text-white rounded-xl text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-    >
-      <Sparkles className="w-4 h-4" />
-
-      {qualityLoading
-        ? 'Analyzing...'
-        : 'Analyze Content'}
-    </button>
+    <div className="flex flex-col sm:flex-row gap-2">
+      <button
+        type="button"
+        onClick={handleGenerateSuggestions}
+        disabled={suggestionsLoading || isPendingReview || !content.trim()}
+        className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#1A382B] hover:bg-[#11261D] text-white rounded-xl text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        <Sparkles className="w-4 h-4" />
+        {suggestionsLoading ? 'Generating...' : 'Get AI Suggestions'}
+      </button>
+      <button
+        type="button"
+        onClick={handleAnalyzeContent}
+        disabled={
+          qualityLoading ||
+          isPendingReview ||
+          (!title.trim() && !content.trim())
+        }
+        className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#EFECE6] hover:bg-[#E7E2D9] text-stone-800 border border-[#E2DDD3] rounded-xl text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {qualityLoading ? 'Analyzing...' : 'Analyze Quality'}
+      </button>
+    </div>
   </div>
+
+  {suggestionsError && (
+    <div className="mb-4 p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-sm flex items-center gap-2">
+      <AlertCircle className="w-4 h-4 flex-shrink-0" />
+      {suggestionsError}
+    </div>
+  )}
+
+  {suggestionsResult && !suggestionsAreCurrent && (
+    <p className="mb-4 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3">
+      The article changed after these suggestions were generated. Generate fresh suggestions before applying them.
+    </p>
+  )}
+
+  {suggestionsResult && (
+    <div className="mb-5 space-y-3">
+      <div className="p-4 border border-[#EDE8DF] rounded-2xl bg-[#FAF7F2]">
+        <h4 className="text-sm font-bold text-stone-900 mb-3">Alternative titles</h4>
+        <div className="space-y-2">
+          {suggestionsResult.titleSuggestions.map((suggestion, index) => {
+            const key = `title-${index}`;
+            return (
+              <div key={key} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-white rounded-xl border border-[#EDE8DF]">
+                <p className="text-sm text-stone-800">{suggestion}</p>
+                {renderSuggestionActions(key, () => setTitle(suggestion))}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="p-4 border border-[#EDE8DF] rounded-2xl bg-white">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+          <div>
+            <h4 className="text-sm font-bold text-stone-900 mb-1">Suggested summary</h4>
+            <p className="text-sm text-stone-700">{suggestionsResult.summary}</p>
+          </div>
+          {renderSuggestionActions('summary', () =>
+            setDescription(suggestionsResult.summary)
+          )}
+        </div>
+      </div>
+
+      <div className="p-4 border border-[#EDE8DF] rounded-2xl bg-white">
+        <h4 className="text-sm font-bold text-stone-900 mb-3">Key takeaways</h4>
+        <div className="space-y-2">
+          {suggestionsResult.keyTakeaways.map((takeaway, index) => {
+            const key = `takeaway-${index}`;
+            return (
+              <div key={key} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-[#FAF7F2] rounded-xl">
+                <p className="text-sm text-stone-700">{takeaway}</p>
+                {renderSuggestionActions(key, () =>
+                  setKeyTakeaways((previous) =>
+                    previous.length < 5 && !previous.includes(takeaway)
+                      ? [...previous, takeaway]
+                      : previous
+                  )
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="p-4 border border-[#EDE8DF] rounded-2xl bg-white">
+        <h4 className="text-sm font-bold text-stone-900 mb-3">Relevant tags</h4>
+        <div className="space-y-2">
+          {suggestionsResult.tags.map((tag, index) => {
+            const key = `tag-${index}`;
+            return (
+              <div key={key} className="flex items-center justify-between gap-3 p-3 bg-[#FAF7F2] rounded-xl">
+                <span className="text-sm text-stone-700">#{tag}</span>
+                {renderSuggestionActions(key, () =>
+                  setTags((previous) =>
+                    previous.some((currentTag) => currentTag.toLowerCase() === tag.toLowerCase())
+                      ? previous
+                      : [...previous, tag]
+                  )
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="p-4 border border-[#EDE8DF] rounded-2xl bg-white">
+        <h4 className="text-sm font-bold text-stone-900 mb-3">Writing improvements</h4>
+        {suggestionsResult.writingSuggestions.length === 0 ? (
+          <p className="text-xs text-stone-500">No specific sentence edits were returned for this draft.</p>
+        ) : (
+          <div className="space-y-3">
+            {suggestionsResult.writingSuggestions.map((suggestion, index) => {
+              const key = `writing-${index}`;
+              return (
+                <div key={key} className="p-3 bg-[#FAF7F2] rounded-xl space-y-2">
+                  <p className="text-xs text-stone-500">{suggestion.reason}</p>
+                  <p className="text-sm text-stone-700">
+                    <span className="line-through text-stone-400">{suggestion.original}</span>
+                    <span className="mx-2 text-[#D97736]">→</span>
+                    <span>{suggestion.replacement}</span>
+                  </p>
+                  <div className="flex justify-end">
+                    {renderSuggestionActions(key, () =>
+                      acceptWritingSuggestion(suggestion, key)
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  )}
 
   {/* Analysis Error */}
   {qualityError && (
@@ -597,7 +918,13 @@ const [qualityError, setQualityError] = useState('');
   )}
 
   {/* Analysis Result */}
-  {qualityResult && (
+  {qualityResult && !qualityIsCurrent && (
+    <p className="mb-4 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3">
+      The article changed after this review. Analyze quality again to refresh the results.
+    </p>
+  )}
+
+  {qualityIsCurrent && qualityResult && (
     <div className="space-y-4">
 
       {/* Overall Score */}
@@ -628,7 +955,7 @@ const [qualityError, setQualityError] = useState('');
       </div>
 
       {/* Quality Categories */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-3">
 
         {/* Grammar */}
         <div className="p-4 border border-[#EDE8DF] rounded-2xl bg-white">
@@ -668,6 +995,34 @@ const [qualityError, setQualityError] = useState('');
           <p className="text-xs text-stone-400 mt-1">
             {qualityResult.readability?.wordCount || 0} words ·{' '}
             {qualityResult.readability?.sentenceCount || 0} sentences
+          </p>
+        </div>
+
+        {/* Clarity */}
+        <div className="p-4 border border-[#EDE8DF] rounded-2xl bg-white">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-bold text-stone-900">Clarity</span>
+            <span className="text-sm font-bold text-[#1A382B]">
+              {qualityResult.clarity?.score || 0}/100
+            </span>
+          </div>
+          <p className="text-xs text-stone-500">
+            {qualityResult.clarity?.issueCount || 0} issue(s) detected
+          </p>
+        </div>
+
+        {/* Repetition */}
+        <div className="p-4 border border-[#EDE8DF] rounded-2xl bg-white">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-bold text-stone-900">Repetition</span>
+            {qualityResult.repetition?.issueCount === 0 ? (
+              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+            ) : (
+              <AlertCircle className="w-5 h-5 text-amber-600" />
+            )}
+          </div>
+          <p className="text-xs text-stone-500">
+            {qualityResult.repetition?.issueCount || 0} repeated term(s)
           </p>
         </div>
 
@@ -711,6 +1066,27 @@ const [qualityError, setQualityError] = useState('');
                 </li>
               )
             )}
+          </ul>
+        </div>
+      )}
+
+      {(qualityResult.clarity?.issues?.length > 0 ||
+        qualityResult.repetition?.repeatedTerms?.length > 0) && (
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl">
+          <h4 className="text-sm font-bold text-amber-900 mb-3">
+            Clarity & Repetition Findings
+          </h4>
+          <ul className="space-y-2">
+            {qualityResult.clarity?.issues?.map((issue, index) => (
+              <li key={`clarity-${index}`} className="text-xs text-amber-800">
+                {issue.message}
+              </li>
+            ))}
+            {qualityResult.repetition?.repeatedTerms?.map((item) => (
+              <li key={`repeat-${item.word}`} className="text-xs text-amber-800">
+                “{item.word}” appears {item.count} times; consider varying the wording where appropriate.
+              </li>
+            ))}
           </ul>
         </div>
       )}
@@ -967,6 +1343,65 @@ const [qualityError, setQualityError] = useState('');
           )}
         </div>
       </div>
+
+      {!isPendingReview && (
+        <section className="p-5 bg-white border border-[#EDE8DF] rounded-2xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+            <div>
+              <h2 className="font-serif text-lg font-bold text-stone-900">
+                Before you submit
+              </h2>
+              <p className="text-xs text-stone-500 mt-1">
+                Review required details and optional quality recommendations.
+              </p>
+            </div>
+            <span className="text-xs text-stone-500">
+              Quality recommendations are advisory and do not block submission.
+            </span>
+            {!qualityIsCurrent && (
+              <button
+                type="button"
+                onClick={handleAnalyzeContent}
+                disabled={qualityLoading || (!title.trim() && !content.trim())}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-[#EFECE6] hover:bg-[#E7E2D9] text-stone-800 border border-[#E2DDD3] rounded-xl text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {qualityLoading ? 'Analyzing...' : 'Run quality review'}
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {qualityChecklist.map((item) => (
+              <div
+                key={item.label}
+                className={`flex items-center gap-2 p-2.5 rounded-xl ${
+                  item.complete === true
+                    ? 'bg-emerald-50'
+                    : item.complete === false && item.required
+                    ? 'bg-rose-50'
+                    : 'bg-[#FAF7F2]'
+                }`}
+              >
+                {item.complete === true ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                ) : item.complete === false && item.required ? (
+                  <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+                ) : (
+                  <span className="w-4 h-4 flex-shrink-0 rounded-full border border-stone-300" />
+                )}
+                <span className="text-xs text-stone-700">
+                  {item.label}
+                  {!item.required && (
+                    <span className="text-stone-400"> (recommended)</span>
+                  )}
+                  {item.complete === null && (
+                    <span className="text-stone-400"> — analyze to review</span>
+                  )}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Action Buttons */}
       {!isPendingReview && (

@@ -250,6 +250,61 @@ const analyzeGrammar = (content = '') => {
   };
 };
 
+const analyzeClarity = (content = '') => {
+  const issues = [];
+  const sentences = getSentences(content);
+  let score = 100;
+
+  sentences.forEach((sentence, index) => {
+    const words = sentence.split(/\s+/).filter(Boolean);
+    if (words.length > 30) {
+      issues.push({
+        type: 'long-sentence',
+        message: `Sentence ${index + 1} may be difficult to follow. Consider splitting it.`,
+      });
+      score -= 12;
+    }
+
+    if (/\b(thing|things|stuff|various|somehow|really|very)\b/i.test(sentence)) {
+      issues.push({
+        type: 'vague-wording',
+        message: `Sentence ${index + 1} may use vague wording. Replace it with a specific detail.`,
+      });
+      score -= 8;
+    }
+  });
+
+  return {
+    score: Math.max(0, score),
+    issueCount: issues.length,
+    issues: issues.slice(0, 20),
+  };
+};
+
+const analyzeRepetition = (content = '') => {
+  const words = getWords(content);
+  const frequency = new Map();
+
+  words.forEach((word) => {
+    if (word.length > 3 && !STOP_WORDS.has(word)) {
+      frequency.set(word, (frequency.get(word) || 0) + 1);
+    }
+  });
+
+  const repetitionThreshold = Math.max(4, Math.ceil(words.length * 0.04));
+  const repeatedTerms = [...frequency.entries()]
+    .filter(([, count]) => count >= repetitionThreshold)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([word, count]) => ({ word, count }));
+
+  return {
+    score: Math.max(0, 100 - repeatedTerms.length * 15),
+    repeatedTerms,
+    issueCount: repeatedTerms.length,
+  };
+};
+
 // ------------------------------------------------------
 // Structure analysis
 // ------------------------------------------------------
@@ -464,6 +519,8 @@ const analyzeDuplicates = ({
 const generateSuggestions = ({
   grammar,
   readability,
+  clarity,
+  repetition,
   structure,
   duplicateResult,
 }) => {
@@ -478,6 +535,18 @@ const generateSuggestions = ({
   if (readability.score < 60) {
     suggestions.push(
       'Use shorter sentences and simpler wording to improve readability.'
+    );
+  }
+
+  if (clarity.issueCount > 0) {
+    suggestions.push(
+      'Replace vague wording and split long sentences to make the article clearer.'
+    );
+  }
+
+  if (repetition.issueCount > 0) {
+    suggestions.push(
+      'Review repeated terms and vary the wording where it does not affect meaning.'
     );
   }
 
@@ -521,6 +590,8 @@ const analyzeContent = ({
   const grammar = analyzeGrammar(content);
 
   const readability = calculateReadability(content);
+  const clarity = analyzeClarity(content);
+  const repetition = analyzeRepetition(content);
 
   const structure = analyzeStructure({
     title,
@@ -555,6 +626,8 @@ const analyzeContent = ({
   const suggestions = generateSuggestions({
     grammar,
     readability,
+    clarity,
+    repetition,
     structure,
     duplicateResult,
   });
@@ -563,6 +636,8 @@ const analyzeContent = ({
     score: overallScore,
     grammar,
     readability,
+    clarity,
+    repetition,
     structure,
     duplicates: duplicateResult,
     suggestions,
@@ -577,5 +652,7 @@ module.exports = {
   analyzeContent,
   analyzeGrammar,
   calculateReadability,
+  analyzeClarity,
+  analyzeRepetition,
   analyzeDuplicates,
 };

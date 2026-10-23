@@ -2,6 +2,7 @@ const express = require('express');
 
 const {
   analyzeContent,
+  generateSuggestions,
 } = require('../controllers/contentQualityController');
 
 const {
@@ -17,6 +18,13 @@ router.post(
   authenticateUser,
   authorizeRole('author', 'admin'),
   analyzeContent
+);
+
+router.post(
+  '/suggestions',
+  authenticateUser,
+  authorizeRole('author', 'admin'),
+  generateSuggestions
 );
 
 module.exports = router;

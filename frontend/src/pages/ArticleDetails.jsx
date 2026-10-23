@@ -9,7 +9,6 @@ import {
   reportAPI,
 } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import RecommendationBadge from '../components/article/RecommendationBadge';
 import AiSidePanel from '../components/article/AiSidePanel';
 import {
   ArrowLeft,

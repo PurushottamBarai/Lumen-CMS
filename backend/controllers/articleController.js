@@ -737,6 +737,62 @@ const incrementViews = async (req, res) => {
   }
 };
 
+// Share an article & increment share count
+const shareArticle = async (req, res) => {
+  try {
+    const { platform = 'link' } = req.body || {};
+
+    if (isMongoConnected()) {
+      const article = await Article.findByIdAndUpdate(
+        req.params.id,
+        { $inc: { shares: 1 } },
+        { new: true }
+      );
+
+      if (!article) {
+        return res.status(404).json({
+          success: false,
+          message: 'Article not found.',
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: 'Article shared successfully.',
+        shares: article.shares,
+        platform,
+      });
+    }
+
+    // In-memory fallback
+    const articleStore = require('../models/articleStore');
+    const article = (articleStore.inMemoryArticles || []).find(
+      (a) => (a._id || a.id).toString() === req.params.id.toString()
+    );
+
+    if (!article) {
+      return res.status(404).json({
+        success: false,
+        message: 'Article not found.',
+      });
+    }
+
+    article.shares = (article.shares || 0) + 1;
+    return res.status(200).json({
+      success: true,
+      message: 'Article shared successfully.',
+      shares: article.shares,
+      platform,
+    });
+  } catch (error) {
+    console.error('Share article error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to record article share.',
+    });
+  }
+};
+
 // Delete article
 const deleteArticle = async (req, res) => {
   try {
@@ -1064,6 +1120,7 @@ module.exports = {
   getPublishedArticlesByAuthor,
   likeArticle,
   incrementViews,
+  shareArticle,
   deleteArticle,
   reviewArticle,
   getAllArticlesForAdmin,

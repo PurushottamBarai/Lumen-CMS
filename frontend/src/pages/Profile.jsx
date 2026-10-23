@@ -27,6 +27,7 @@ import { articleAPI, quizAttemptAPI, userAPI } from '../services/api';
 import TrustScoreCard from '../components/trust/TrustScoreCard';
 import TrustBadge from '../components/trust/TrustBadge';
 import FreshnessAlertBanner from '../components/article/FreshnessAlertBanner';
+import AuthorPerformanceCard from '../components/analytics/AuthorPerformanceCard';
 
 const Profile = () => {
   const { user, updateProfile } = useAuth();
@@ -1007,6 +1008,19 @@ const Profile = () => {
       <section>
         <TrustScoreCard initialUser={user} />
       </section>
+
+      {/* ================================================= */}
+      {/* AUTHOR PERFORMANCE ANALYTICS (STITCH DESIGN)     */}
+      {/* ================================================= */}
+
+      {(isAuthor || user?.role === 'author' || user?.role === 'admin') && (
+        <section>
+          <AuthorPerformanceCard
+            authorId={user._id || user.id}
+            showFullHubLink={true}
+          />
+        </section>
+      )}
 
       {/* ================================================= */}
       {/* SAVED READING LIST */}

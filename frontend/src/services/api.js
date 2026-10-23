@@ -200,6 +200,10 @@ export const articleAPI = {
   viewArticle: (id) =>
     API.patch(`/articles/${id}/view`),
 
+  // Share article & increment citation/share metric
+  shareArticle: (id, platform = 'link') =>
+    API.patch(`/articles/${id}/share`, { platform }),
+
   // Admin review
   reviewArticle: (id, data) =>
     API.patch(`/articles/${id}/review`, data),
@@ -213,6 +217,15 @@ export const articleAPI = {
 
   getRecommendationExplanation: (id, params) =>
     API.get('/articles/' + id + '/explanation', { params }),
+  // AI Article Summarization (Groq Qwen)
+  getArticleSummary: (id) =>
+    API.get('/articles/' + id + '/summary'),
+
+  generateArticleSummary: (id, force = false) =>
+    API.post('/articles/' + id + '/summarize' + (force ? '?force=true' : '')),
+
+  chatWithArticle: (id, data) =>
+    API.post('/articles/' + id + '/chat', data),
 
   // Admin: get all non-draft articles
   getAllArticlesForAdmin: () =>
@@ -377,6 +390,18 @@ export const spamAbuseAPI = {
   getUserCommentActivity: (userId) => API.get(`/spam-abuse/user/${userId}/activity`),
   restrictUser: (userId, data) => API.patch(`/spam-abuse/user/${userId}/restrict`, data),
   getPendingReports: () => API.get('/spam-abuse/reports/pending'),
+};
+
+// Author Performance Analytics API
+export const authorAnalyticsAPI = {
+  getMyAnalytics: (params) =>
+    API.get('/author-analytics/me', { params }),
+
+  getAuthorAnalytics: (authorId, params) =>
+    API.get(`/author-analytics/author/${authorId}`, { params }),
+
+  shareArticle: (articleId, platform = 'link') =>
+    API.patch(`/articles/${articleId}/share`, { platform }),
 };
 
 // Alias QuizAPI for backwards compatibility

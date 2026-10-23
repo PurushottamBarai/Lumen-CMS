@@ -72,6 +72,7 @@ const moderationRoutes = require('./routes/moderationRoutes');
 const spamAbuseRoutes = require('./routes/spamAbuseRouters');
 const trustRoutes = require('./routes/trustRoutes');
 const appealRoutes = require('./routes/appealRoutes');
+const authorAnalyticsRoutes = require('./routes/authorAnalyticsRoutes');
 
 // Authentication
 app.use('/api/auth', authRoutes);
@@ -81,6 +82,9 @@ app.use('/api/users', userRoutes);
 
 // Articles
 app.use('/api/articles', articleRoutes);
+
+// Author Performance Analytics
+app.use('/api/author-analytics', authorAnalyticsRoutes);
 
 // Admin Verification
 app.use('/api/admin-verification', adminVerificationRoutes);

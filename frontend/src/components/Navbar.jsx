@@ -23,6 +23,7 @@ import {
   MessageSquare,
   ShieldAlert,
   AlertTriangle,
+  BarChart3,
 } from 'lucide-react';
 
 const Navbar = () => {
@@ -238,6 +239,8 @@ const Navbar = () => {
     location.pathname.startsWith('/admin');
   const isProfileActive =
     location.pathname === '/profile';
+  const isAnalyticsActive =
+    location.pathname.startsWith('/analytics');
 
   // Support both notification data formats
   const unreadCount = notifications.filter(
@@ -275,6 +278,13 @@ const Navbar = () => {
       label: 'Write',
       icon: PenLine,
       active: isWriteActive,
+      show: isAuthor || isAdmin,
+    },
+    {
+      to: '/analytics',
+      label: 'Analytics',
+      icon: BarChart3,
+      active: isAnalyticsActive,
       show: isAuthor || isAdmin,
     },
     {

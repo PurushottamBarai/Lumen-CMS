@@ -14,6 +14,7 @@ const {
   getPublishedArticlesByAuthor,
   likeArticle,
   incrementViews,
+  shareArticle,
   deleteArticle,
   reviewArticle,
   getAllArticlesForAdmin,
@@ -35,6 +36,12 @@ const {
   auditDraftHandler,
   getExplanationHandler,
 } = require('../controllers/freshnessController');
+
+const {
+  getArticleSummary,
+  generateArticleSummary,
+  articleChatHandler,
+} = require('../controllers/articleSummaryController');
 
 const router = express.Router();
 
@@ -58,6 +65,12 @@ router.get(
 router.patch(
   '/:id/view',
   incrementViews
+);
+
+// Share article & increment share count
+router.patch(
+  '/:id/share',
+  shareArticle
 );
 
 // =====================================================
@@ -182,6 +195,10 @@ router.get('/:id/recommendations', optionalAuth, getRecommendedArticles);
 router.get('/freshness/alerts', optionalAuth, getAuthorFreshnessAlerts);
 router.post('/freshness/audit', optionalAuth, auditDraftHandler);
 router.get('/:id/explanation', optionalAuth, getExplanationHandler);
+// AI Article Summarization (Groq Qwen)
+router.get('/:id/summary', optionalAuth, getArticleSummary);
+router.post('/:id/summarize', optionalAuth, generateArticleSummary);
+router.post('/:id/chat', optionalAuth, articleChatHandler);
 
 router.get('/:id', optionalAuth, getArticleById);
 

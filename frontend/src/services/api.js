@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Base API instance
 const API = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'https://content-management-system-2-he9n.onrender.com/api',
+  baseURL: import.meta.env.VITE_API_URL || (import.meta.env.DEV ? '/api' : 'https://content-management-system-2-he9n.onrender.com/api'),
   headers: {
     'Content-Type': 'application/json',
   },
@@ -159,6 +159,10 @@ export const articleAPI = {
   // Public / Browse
   getArticles: (params) =>
     API.get('/articles', { params }),
+
+  // Topic and trend detection
+  getTopicTrends: () =>
+    API.get('/articles/topics/trends'),
 
   getArticleById: (id) =>
     API.get(`/articles/${id}`),

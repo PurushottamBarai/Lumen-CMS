@@ -77,7 +77,9 @@ const Login = () => {
         }
       } else {
         setError(
-          res.message || 'Failed to sign in with demo credentials.'
+          res.code === 'DEMO_ACCOUNT_NOT_CONFIGURED'
+            ? res.message
+            : res.message || 'Failed to sign in with demo credentials.'
         );
       }
     } catch (err) {

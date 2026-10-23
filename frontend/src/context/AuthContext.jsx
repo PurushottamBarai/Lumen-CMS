@@ -56,7 +56,7 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       const message =
         error.response?.data?.message || 'Login failed. Please check your credentials.';
-      return { success: false, message };
+      return { success: false, message, code: error.response?.data?.code };
     }
   };
 

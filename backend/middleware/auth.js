@@ -1,5 +1,7 @@
 const jwt = require('jsonwebtoken');
 const userStore = require('../models/userStore');
+const { requireDatabase } = require('./requireDatabase');
+const { getJwtSecret } = require('../config/jwt');
 
 /**
  * Reusable JWT Authentication Middleware for the entire Lumen project.
@@ -22,14 +24,26 @@ const authenticateUser = async (req, res, next) => {
     });
   }
 
-  const jwtSecret = process.env.JWT_SECRET || 'lumen_super_secret_jwt_key_2026_cms_platform';
+  const jwtSecret = getJwtSecret();
+  if (!jwtSecret) {
+    return res.status(503).json({
+      success: false,
+      code: 'AUTH_CONFIGURATION_MISSING',
+      message: 'Authentication is not configured. Ask the administrator to check the server configuration.',
+    });
+  }
 
   try {
     // 2. Verify JWT signature & expiration using environment secret
     const decoded = jwt.verify(token, jwtSecret);
 
     // 3. Find user by ID via userStore
-    const currentUser = await userStore.findById(decoded.id);
+    if (!userStore.isDBConnected() && process.env.NODE_ENV !== 'test' && process.env.ALLOW_IN_MEMORY_FALLBACK !== 'true') {
+      return requireDatabase(req, res, () => {});
+    }
+    const currentUser = userStore.isDBConnected()
+      ? await userStore.findByIdPersistent(decoded.id)
+      : await userStore.findById(decoded.id);
 
     if (!currentUser) {
       return res.status(401).json({
@@ -42,6 +56,13 @@ const authenticateUser = async (req, res, next) => {
     req.user = currentUser;
     next();
   } catch (error) {
+    if (error.code === 'DATABASE_UNAVAILABLE' || (process.env.NODE_ENV !== 'test' && !userStore.isDBConnected() && process.env.ALLOW_IN_MEMORY_FALLBACK !== 'true')) {
+      return res.status(503).json({
+        success: false,
+        code: 'DATABASE_UNAVAILABLE',
+        message: 'The database is unavailable. Please try again when the CMS database connection is restored.',
+      });
+    }
     if (error.name === 'TokenExpiredError') {
       return res.status(401).json({
         success: false,
@@ -64,11 +85,14 @@ const optionalAuth = async (req, res, next) => {
     req.headers.authorization.startsWith('Bearer ')
   ) {
     const token = req.headers.authorization.split(' ')[1];
-    const jwtSecret = process.env.JWT_SECRET || 'lumen_super_secret_jwt_key_2026_cms_platform';
+    const jwtSecret = getJwtSecret();
+    if (!jwtSecret) return next();
     if (token) {
       try {
         const decoded = jwt.verify(token, jwtSecret);
-        req.user = await userStore.findById(decoded.id);
+        req.user = userStore.isDBConnected()
+          ? await userStore.findByIdPersistent(decoded.id)
+          : await userStore.findById(decoded.id);
       } catch (err) {
         // Silently proceed for optional auth
       }

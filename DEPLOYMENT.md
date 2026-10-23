@@ -13,7 +13,7 @@ This document provides step-by-step instructions for deploying the **Lumen CMS**
 4. Connect your GitHub repository. Render will automatically detect the `render.yaml` file located in the project root.
 5. Set the required Environment Variable `MONGODB_URI` when prompted:
    ```env
-   MONGODB_URI=mongodb+srv://<username>:<password>@<cluster-host>/<database>?retryWrites=true&w=majority
+   MONGODB_URI=mongodb+srv://ags054570_db_user:<password>@cluster0.c6ksgra.mongodb.net/content_management_system?appName=Cluster0
    ```
 6. Click **Apply**. Render will build and deploy the backend automatically.
 
@@ -39,8 +39,8 @@ This document provides step-by-step instructions for deploying the **Lumen CMS**
 4. **Environment Variables on Render**:
    - `NODE_ENV`: `production`
    - `PORT`: `10000`
-   - `MONGODB_URI`: `mongodb+srv://<username>:<password>@<cluster-host>/<database>?retryWrites=true&w=majority`
-   - `JWT_SECRET`: `replace-with-a-long-random-secret`
+   - `MONGODB_URI`: `mongodb+srv://ags054570_db_user:<password>@cluster0.c6ksgra.mongodb.net/content_management_system?appName=Cluster0`
+   - `JWT_SECRET`: `lumen_super_secret_jwt_key_2026_cms_platform`
    - `JWT_EXPIRES_IN`: `7d`
    - `CLIENT_URL`: `https://your-frontend-app.vercel.app`
 5. Click **Save Changes** / **Manual Deploy** -> **Deploy latest commit**.

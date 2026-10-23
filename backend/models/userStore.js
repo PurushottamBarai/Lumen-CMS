@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const User = require('./User');
+const { canUseMemoryFallback } = require('../middleware/requireDatabase');
 
 // In-Memory fallback store for when MongoDB Atlas/local is not yet connected
 let inMemoryUsers = [];
@@ -14,7 +15,7 @@ const initMemoryStore = async () => {
         _id: '66c9f1a00000000000000001',
         name: 'Amara Silva',
         email: 'admin@lumen.com',
-        password: await bcrypt.hash('admin123', salt),
+        password: await bcrypt.hash('password123', salt),
         role: 'admin',
         bio: 'Lead Editorial Director & Platform Administrator at Lumen.',
         avatar: '',
@@ -26,7 +27,7 @@ const initMemoryStore = async () => {
         _id: '66c9f1a00000000000000002',
         name: 'Thomas Okeke',
         email: 'author@lumen.com',
-        password: await bcrypt.hash('author123', salt),
+        password: await bcrypt.hash('password123', salt),
         role: 'author',
         bio: 'Historian of technology. Former editor at Nature. Coffee enthusiast.',
         avatar: '',
@@ -38,7 +39,7 @@ const initMemoryStore = async () => {
         _id: '66c9f1a00000000000000003',
         name: 'Priya Mehta',
         email: 'priya.mehta@lumen.com',
-        password: await bcrypt.hash('author123', salt),
+        password: await bcrypt.hash('password123', salt),
         role: 'author',
         bio: 'Molecular biologist & science communicator covering genetic engineering.',
         avatar: '',
@@ -50,7 +51,7 @@ const initMemoryStore = async () => {
         _id: '66c9f1a00000000000000004',
         name: 'Lena Kaufmann',
         email: 'reader@lumen.com',
-        password: await bcrypt.hash('reader123', salt),
+        password: await bcrypt.hash('password123', salt),
         role: 'reader',
         bio: 'Avid reader and tech quiz enthusiast exploring modern science.',
         avatar: '',
@@ -67,8 +68,48 @@ const isDBConnected = () => {
   return mongoose.connection && mongoose.connection.readyState === 1;
 };
 
+const createDatabaseUnavailableError = () => {
+  const error = new Error('The CMS database is unavailable.');
+  error.name = 'DatabaseUnavailableError';
+  error.code = 'DATABASE_UNAVAILABLE';
+  return error;
+};
+
+const logStoreFailure = (operation, error) => {
+  console.warn(`[DB Fallback] ${operation}; using in-memory store.`, {
+    name: error.name,
+    code: error.code || 'UNKNOWN',
+  });
+};
+
 const userStore = {
   isDBConnected,
+
+  async findByEmailPersistent(email, includePassword = false) {
+    if (!isDBConnected()) {
+      if (canUseMemoryFallback()) return userStore.findByEmail(email, includePassword);
+      throw createDatabaseUnavailableError();
+    }
+    const query = User.findOne({ email: email.toLowerCase().trim() });
+    if (includePassword) query.select('+password');
+    return query.exec();
+  },
+
+  async findByIdPersistent(id) {
+    if (!isDBConnected()) {
+      if (canUseMemoryFallback()) return userStore.findById(id);
+      throw createDatabaseUnavailableError();
+    }
+    return User.findById(id);
+  },
+
+  async createUserPersistent(user) {
+    if (!isDBConnected()) {
+      if (canUseMemoryFallback()) return userStore.createUser(user);
+      throw createDatabaseUnavailableError();
+    }
+    return User.create(user);
+  },
 
   async findByEmail(email, includePassword = false) {
     const normalized = email.toLowerCase().trim();
@@ -79,7 +120,7 @@ const userStore = {
         const user = await query.exec();
         if (user) return user;
       } catch (err) {
-        console.warn('[DB Fallback] Mongoose query failed, using in-memory store:', err.message);
+        logStoreFailure('Mongoose query failed', err);
       }
     }
 
@@ -92,22 +133,7 @@ const userStore = {
       ...found,
       _id: found.id,
       async matchPassword(enteredPassword) {
-        const isMatch = await bcrypt.compare(enteredPassword, found.password);
-        if (isMatch) return true;
-        const DEMO_EMAILS = [
-          'admin@lumen.com',
-          'author@lumen.com',
-          'reader@lumen.com',
-          'priya.mehta@lumen.com',
-          'thomas.okeke@lumen.com',
-          'john.reader@lumen.com',
-        ];
-        if (DEMO_EMAILS.includes(found.email.toLowerCase())) {
-          if (['password123', 'admin123', 'author123', 'reader123'].includes(enteredPassword)) {
-            return true;
-          }
-        }
-        return false;
+        return bcrypt.compare(enteredPassword, found.password);
       },
     };
   },
@@ -118,7 +144,7 @@ const userStore = {
         const user = await User.findById(id);
         if (user) return user;
       } catch (err) {
-        console.warn('[DB Fallback] Mongoose findById failed, using in-memory store:', err.message);
+        logStoreFailure('Mongoose findById failed', err);
       }
     }
 
@@ -130,20 +156,7 @@ const userStore = {
       ...found,
       _id: found.id,
       async matchPassword(enteredPassword) {
-        const isMatch = await bcrypt.compare(enteredPassword, found.password);
-        if (isMatch) return true;
-        const DEMO_EMAILS = [
-          'admin@lumen.com',
-          'author@lumen.com',
-          'reader@lumen.com',
-          'priya.mehta@lumen.com',
-        ];
-        if (DEMO_EMAILS.includes(found.email.toLowerCase())) {
-          if (['password123', 'admin123', 'author123', 'reader123'].includes(enteredPassword)) {
-            return true;
-          }
-        }
-        return false;
+        return bcrypt.compare(enteredPassword, found.password);
       },
       async save() {
         const idx = inMemoryUsers.findIndex((u) => u.id === found.id);
@@ -161,7 +174,7 @@ const userStore = {
         const newUser = await User.create({ name, email, password, role, bio });
         return newUser;
       } catch (err) {
-        console.warn('[DB Fallback] Mongoose create failed, using in-memory store:', err.message);
+        logStoreFailure('Mongoose create failed', err);
       }
     }
 
@@ -202,7 +215,7 @@ const userStore = {
           return user;
         }
       } catch (err) {
-        console.warn('[DB Fallback] Mongoose update failed, using in-memory store:', err.message);
+        logStoreFailure('Mongoose update failed', err);
       }
     }
 
@@ -228,7 +241,7 @@ const userStore = {
           return true;
         }
       } catch (err) {
-        console.warn('[DB Fallback] Mongoose password update failed:', err.message);
+        logStoreFailure('Mongoose password update failed', err);
       }
     }
 
@@ -251,7 +264,7 @@ const userStore = {
         await User.findByIdAndDelete(id);
         return true;
       } catch (err) {
-        console.warn('[DB Fallback] Mongoose delete failed, using in-memory store:', err.message);
+        logStoreFailure('Mongoose delete failed', err);
       }
     }
 
@@ -270,7 +283,7 @@ const userStore = {
         const users = await User.find().sort({ createdAt: -1 });
         return users;
       } catch (err) {
-        console.warn('[DB Fallback] Mongoose find failed, using in-memory store:', err.message);
+        logStoreFailure('Mongoose find failed', err);
       }
     }
 

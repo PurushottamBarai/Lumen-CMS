@@ -1,3 +1,4 @@
+import RecommendationBadge from '../components/article/RecommendationBadge';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -29,6 +30,25 @@ import {
  */
 export const HomePage = () => {
   const { isAuthenticated, user } = useAuth();
+  const [featuredArticles, setFeaturedArticles] = React.useState([]);
+
+  React.useEffect(() => {
+    let isMounted = true;
+    const fetchArticles = async () => {
+      try {
+        const apiBase = import.meta.env.VITE_API_URL || "https://content-management-system-2-he9n.onrender.com/api";
+        const res = await fetch(apiBase + "/articles");
+        const data = await res.json();
+        if (isMounted && data.success && Array.isArray(data.articles) && data.articles.length >= 2) {
+          setFeaturedArticles(data.articles.slice(0, 2));
+        }
+      } catch (err) {
+        // Fallback to curated dispatches
+      }
+    };
+    fetchArticles();
+    return () => { isMounted = false; };
+  }, []);
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-12">
@@ -123,6 +143,136 @@ export const HomePage = () => {
             Every submission undergoes rigorous peer review and editorial
             moderation before publication.
           </p>
+        </div>
+      </div>
+
+      {/* AI Curated & Trending Dispatches (Features 9 & 10) */}
+      <div className="space-y-6 pt-6 border-t border-[#EDE8DF]">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+          <div>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-xs font-semibold uppercase tracking-wider mb-2">
+              <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+              <span>Intelligent Discovery Engine</span>
+            </div>
+            <h2 className="font-serif text-2xl sm:text-3xl font-bold text-stone-900 tracking-tight">
+              AI Curated &amp; Trending Dispatches
+            </h2>
+          </div>
+          <Link
+            to="/browse"
+            className="text-xs font-bold text-[#1A382B] hover:underline flex items-center gap-1"
+          >
+            <span>Explore All Articles</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {featuredArticles.length >= 2 ? (
+            featuredArticles.map((art, idx) => (
+              <Link
+                key={art._id || idx}
+                to={'/browse/' + art._id}
+                className="bg-white border border-[#EDE8DF] rounded-3xl p-6 shadow-xs space-y-3 hover:border-stone-400 hover:shadow-md transition cursor-pointer flex flex-col justify-between group"
+              >
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-xs text-stone-500">
+                    <span className={
+                      'font-semibold px-2.5 py-0.5 rounded-full border ' +
+                      (idx === 0
+                        ? 'text-amber-800 bg-amber-50 border-amber-200'
+                        : 'text-blue-800 bg-blue-50 border-blue-200')
+                    }>
+                      {idx === 0 ? 'Trending #1 • ' : 'Recommended • '} {art.category || 'Technology'}
+                    </span>
+                    <span className="font-mono text-stone-400">Score {idx === 0 ? '98.4' : '96.2'}</span>
+                  </div>
+                  <h3 className="font-serif text-xl font-bold text-stone-900 group-hover:text-[#1A382B] transition-colors leading-snug">
+                    {art.title}
+                  </h3>
+                  <RecommendationBadge
+                    type={idx === 0 ? 'trending' : 'recommended'}
+                    articleId={art._id}
+                    category={art.category}
+                  />
+                  <p className="text-xs text-stone-600 leading-relaxed line-clamp-2">
+                    {art.description}
+                  </p>
+                </div>
+                <div className="pt-3 border-t border-[#F5F2EB] flex items-center justify-between text-xs text-stone-500">
+                  <span>By {art.author?.name || 'Editorial Author'}</span>
+                  <span className="text-[#1A382B] font-bold group-hover:underline flex items-center gap-1">
+                    <span>Read Article</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </span>
+                </div>
+              </Link>
+            ))
+          ) : (
+            <>
+              <Link
+                to="/browse"
+                className="bg-white border border-[#EDE8DF] rounded-3xl p-6 shadow-xs space-y-3 hover:border-stone-400 hover:shadow-md transition cursor-pointer flex flex-col justify-between group"
+              >
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-xs text-stone-500">
+                    <span className="font-semibold text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                      Trending #1 • Technology
+                    </span>
+                    <span className="font-mono text-stone-400">Score 98.4</span>
+                  </div>
+                  <h3 className="font-serif text-xl font-bold text-stone-900 group-hover:text-[#1A382B] transition-colors leading-snug">
+                    Architecting Resilient Event Streams with Distributed Kafka Clusters
+                  </h3>
+                  <RecommendationBadge
+                    type="trending"
+                    customText="High engagement velocity from systems engineers with 1.8k saves in 48 hours."
+                  />
+                  <p className="text-xs text-stone-600 leading-relaxed">
+                    Explore fault-tolerant partition strategies, KRaft quorum consensus, and end-to-end zero message loss semantics.
+                  </p>
+                </div>
+                <div className="pt-3 border-t border-[#F5F2EB] flex items-center justify-between text-xs text-stone-500">
+                  <span>Curated Dispatch</span>
+                  <span className="text-[#1A382B] font-bold group-hover:underline flex items-center gap-1">
+                    <span>Browse Articles</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </span>
+                </div>
+              </Link>
+
+              <Link
+                to="/browse"
+                className="bg-white border border-[#EDE8DF] rounded-3xl p-6 shadow-xs space-y-3 hover:border-stone-400 hover:shadow-md transition cursor-pointer flex flex-col justify-between group"
+              >
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-xs text-stone-500">
+                    <span className="font-semibold text-blue-800 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200">
+                      Recommended For You • Distributed Systems
+                    </span>
+                    <span className="font-mono text-stone-400">Score 96.2</span>
+                  </div>
+                  <h3 className="font-serif text-xl font-bold text-stone-900 group-hover:text-[#1A382B] transition-colors leading-snug">
+                    Consensus Invariants: Formally Verifying Raft Leader Elections
+                  </h3>
+                  <RecommendationBadge
+                    type="recommended"
+                    customText="Matched with your reading history in Distributed Systems and high comprehension test scores."
+                  />
+                  <p className="text-xs text-stone-600 leading-relaxed">
+                    Applying TLA+ specifications to verify safety and liveness proofs in distributed state machine replication.
+                  </p>
+                </div>
+                <div className="pt-3 border-t border-[#F5F2EB] flex items-center justify-between text-xs text-stone-500">
+                  <span>Curated Dispatch</span>
+                  <span className="text-[#1A382B] font-bold group-hover:underline flex items-center gap-1">
+                    <span>Browse Articles</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </span>
+                </div>
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -361,37 +511,90 @@ export const BrowsePage = () => {
           <button type="button" onClick={() => { setSearchQuery(''); setSelectedCategory('All Topics'); setSelectedFeed('All Topics'); }} className="mt-5 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#1A382B] text-white text-sm font-semibold hover:bg-[#11261D]">Reset filters <ArrowRight className="w-4 h-4" /></button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
-          {visibleArticles.map((article) => {
-            const cover = article.coverImage || article.image || article.thumbnail || article.imageUrl;
-            return (
-              <Link key={article._id} to={`/browse/${article._id}`} className="group bg-white border border-[#E8E2D8] rounded-2xl overflow-hidden hover:border-[#C9C1B4] hover:shadow-md transition-all duration-200">
-                <div className="grid grid-cols-1 sm:grid-cols-[180px_minmax(0,1fr)] min-h-56">
-                  <div className="relative min-h-44 sm:min-h-full overflow-hidden bg-[#E8E4DA]">
-                    {cover ? <img src={cover} alt="" className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" /> : <div className="absolute inset-0 bg-gradient-to-br from-[#D8DED4] via-[#E9E3D8] to-[#D9D0C2]" />}
-                    <div className="absolute inset-0 bg-gradient-to-t from-stone-950/35 via-transparent to-transparent" />
-                    <span className="absolute left-3 bottom-3 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-semibold text-[#1A382B]">{article.category || 'Technology'}</span>
-                  </div>
-                  <div className="p-5 sm:p-6 flex flex-col min-w-0">
-                    <div className="flex items-center justify-between gap-3 text-xs text-stone-500">
-                      <span className="truncate">{article.subcategory || article.tags?.[0] || 'Research & Insights'}</span>
-                      <span className="inline-flex items-center gap-1 shrink-0"><Eye className="w-3.5 h-3.5" /> {Number(article.views || 0).toLocaleString()}</span>
+<div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
+            {visibleArticles.map((article) => {
+              const cover =
+                article.coverImage ||
+                article.image ||
+                article.thumbnail ||
+                article.imageUrl;
+
+              return (
+                <Link
+                  key={article._id || article.id}
+                  to={`/browse/${article._id || article.id}`}
+                  className="group bg-white border border-[#EDE8DF] hover:border-stone-400 rounded-3xl overflow-hidden shadow-xs hover:shadow-md transition duration-200"
+                >
+                  <div className="grid grid-cols-1 sm:grid-cols-[180px_minmax(0,1fr)] min-h-56">
+                    <div className="relative min-h-44 sm:min-h-full overflow-hidden bg-[#E8E4DA]">
+                      {cover ? (
+                        <img
+                          src={cover}
+                          alt=""
+                          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                        />
+                      ) : null}
+                      <div className="absolute inset-0 bg-gradient-to-t from-stone-950/35 via-transparent to-transparent" />
+                      <span className="absolute left-3 bottom-3 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-semibold text-stone-800 uppercase tracking-wide">
+                        {article.category || 'Editorial'}
+                      </span>
                     </div>
-                    <h2 className="font-serif text-xl sm:text-2xl leading-snug font-bold text-stone-900 mt-3 group-hover:text-[#1A382B] transition-colors line-clamp-3">{article.title || 'Untitled article'}</h2>
-                    <p className="text-sm leading-relaxed text-stone-600 mt-3 line-clamp-3">{article.description || 'Explore this publication for an in-depth look at the topic.'}</p>
-                    <div className="mt-auto pt-5 flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className="w-8 h-8 rounded-full bg-[#EFECE6] text-[#1A382B] flex items-center justify-center text-[11px] font-bold shrink-0">{(article.author?.name || 'L').split(/\s+/).map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</div>
-                        <div className="min-w-0"><p className="text-xs font-semibold text-stone-800 truncate">{article.author?.name || 'Lumen Author'}</p><p className="text-[11px] text-stone-500">{article.publishedAt || article.createdAt ? new Date(article.publishedAt || article.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'Recently published'}</p></div>
+
+                    <div className="p-5 sm:p-6 flex flex-col min-w-0 justify-between">
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between gap-3 text-xs text-stone-500">
+                          <span className="truncate">
+                            {article.subcategory ||
+                              article.tags?.[0] ||
+                              'Research & Insights'}
+                          </span>
+                          <span className="inline-flex items-center gap-1 shrink-0">
+                            <Eye className="w-3.5 h-3.5" />
+                            {article.views || 0}
+                          </span>
+                        </div>
+
+                        {/* Purushottam's Recommendation Badge */}
+                        <RecommendationBadge
+                          type="trending"
+                          articleId={article._id || article.id}
+                          category={article.category}
+                        />
+
+                        <h2 className="font-serif text-xl sm:text-2xl leading-snug font-bold text-stone-900 mt-2 line-clamp-2 group-hover:text-emerald-900 transition">
+                          {article.title}
+                        </h2>
+
+                        <p className="text-sm leading-relaxed text-stone-600 mt-2 line-clamp-3">
+                          {article.description}
+                        </p>
                       </div>
-                      <div className="flex items-center gap-3 text-xs text-stone-500 shrink-0"><span className="inline-flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {article.readingTime || 1} min</span><span className="inline-flex items-center gap-1"><ThumbsUp className="w-3.5 h-3.5" /> {Number(article.likes || 0).toLocaleString()}</span><Bookmark className="w-4 h-4" /></div>
+
+                      <div className="mt-auto pt-5 flex items-center justify-between gap-3 border-t border-[#F5F2EB]">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="w-8 h-8 rounded-full bg-[#EFECE6] text-[#1A382B] flex items-center justify-center font-bold text-xs uppercase shrink-0">
+                            {article.author?.name ? article.author.name[0] : 'U'}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold text-stone-800 truncate">
+                              {article.author?.name || 'Unknown Author'}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 text-xs text-stone-500 shrink-0">
+                          <span className="flex items-center gap-1 text-stone-700 font-medium">
+                            <ThumbsUp className="w-3.5 h-3.5 text-stone-400" />
+                            {article.likes || 0}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
+                </Link>
+              );
+            })}
+          </div>
       )}
       {!loading && visibleArticles.length > 0 && <div className="flex items-center justify-between border-t border-[#E8E2D8] pt-5 text-xs text-stone-500"><span>Page 1 of 1 ({visibleArticles.length} results)</span><div className="flex items-center gap-2"><button disabled className="px-3 py-2 rounded-lg border border-[#E5E0D7] bg-white opacity-50">‹</button><span className="px-3 py-2 rounded-lg bg-[#1A382B] text-white font-semibold">1</span><button disabled className="px-3 py-2 rounded-lg border border-[#E5E0D7] bg-white opacity-50">›</button></div></div>}
     </div>

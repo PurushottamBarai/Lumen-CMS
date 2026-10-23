@@ -26,6 +26,7 @@ import { useAuth } from '../context/AuthContext';
 import { articleAPI, quizAttemptAPI, userAPI } from '../services/api';
 import TrustScoreCard from '../components/trust/TrustScoreCard';
 import TrustBadge from '../components/trust/TrustBadge';
+import FreshnessAlertBanner from '../components/article/FreshnessAlertBanner';
 
 const Profile = () => {
   const { user, updateProfile } = useAuth();
@@ -1127,6 +1128,8 @@ const Profile = () => {
 
       {isAuthor && (
         <section className="space-y-4">
+
+          <FreshnessAlertBanner />
 
           <div className="flex items-center justify-between">
 

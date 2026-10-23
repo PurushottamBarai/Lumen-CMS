@@ -6,6 +6,7 @@ import {
   contentQualityAPI,
 } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import FreshnessAuditBox from '../components/article/FreshnessAuditBox';
 import {
   ArrowLeft,
   Save,
@@ -554,6 +555,7 @@ const [qualityError, setQualityError] = useState('');
 {/* Content Quality & Duplicate Detection */}
 {/* ------------------------------------------------ */}
 <div className="pt-6 border-t border-[#F5F2EB]">
+  <FreshnessAuditBox title={title} content={content} />
   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
     <div>
       <div className="flex items-center gap-2">

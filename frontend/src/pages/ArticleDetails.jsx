@@ -8,6 +8,7 @@ import {
   reportAPI,
 } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import RecommendationBadge from '../components/article/RecommendationBadge';
 import {
   ArrowLeft,
   Clock,
@@ -1302,6 +1303,14 @@ const ArticleDetails = () => {
                         </Link>
 
                       </h4>
+
+                      <RecommendationBadge
+                        type="linked"
+                        articleId={rel._id}
+                        sourceTitle={article?.title}
+                        category={rel.category}
+                        variant="slate"
+                      />
 
                     </div>
 
